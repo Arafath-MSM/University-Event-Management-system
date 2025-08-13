@@ -8,11 +8,9 @@ require_once '../../utils/JWTUtil.php';
 
 header('Content-Type: application/json');
 
-// Get database connection
 $database = new Database();
 $db = $database->getConnection();
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -22,14 +20,12 @@ if (!$payload) {
     exit();
 }
 
-// Check if user is super-admin
 if ($payload['role'] !== 'super-admin') {
     http_response_code(403);
     echo json_encode(array("success" => false, "message" => "Access denied. Only super-admin can access reports."));
     exit();
 }
 
-// Get query parameters
 $startDate = $_GET['start_date'] ?? date('Y-m-01');
 $endDate = $_GET['end_date'] ?? date('Y-m-t');
 $venueId = $_GET['venue_id'] ?? null;
@@ -37,20 +33,16 @@ $venueId = $_GET['venue_id'] ?? null;
 try {
     $response = array();
     
-    // 1. Overall Venue Statistics
     $overallStats = array();
     
-    // Total venues
     $stmt = $db->prepare("SELECT COUNT(*) as total FROM venues");
     $stmt->execute();
     $overallStats['total_venues'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
     
-    // Total venue capacity
     $stmt = $db->prepare("SELECT SUM(capacity) as total FROM venues");
     $stmt->execute();
     $overallStats['total_capacity'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
     
-    // 2. Venue Usage Statistics
     $venueUsageQuery = "
         SELECT 
             v.id,
@@ -75,7 +67,6 @@ try {
     $stmt->execute([$startDate, $endDate, $startDate, $endDate]);
     $venueUsage = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Calculate utilization rates and efficiency metrics
     foreach ($venueUsage as &$venue) {
         $venue['utilization_rate'] = $venue['capacity'] > 0 ? 
             round(($venue['total_participants'] / ($venue['capacity'] * $venue['event_count'])) * 100, 1) : 0;
@@ -87,7 +78,6 @@ try {
             round(($venue['avg_participants'] / $venue['capacity']) * 100, 1) : 0;
     }
     
-    // 3. Venue Performance Ranking
     $performanceQuery = "
         SELECT 
             v.name,
@@ -109,7 +99,6 @@ try {
     $stmt->execute([$startDate, $endDate]);
     $topVenues = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 4. Monthly Venue Usage Trends
     $trendQuery = "
         SELECT 
             DATE_FORMAT(ep.created_at, '%Y-%m') as month,
@@ -126,7 +115,6 @@ try {
     $stmt->execute();
     $monthlyTrends = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 5. Venue Category Analysis
     $categoryQuery = "
         SELECT 
             'General' as facilities,
@@ -144,7 +132,6 @@ try {
     $stmt->execute([$startDate, $endDate]);
     $categoryAnalysis = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 6. Peak Usage Times
     $peakQuery = "
         SELECT 
             HOUR(ep.created_at) as hour,

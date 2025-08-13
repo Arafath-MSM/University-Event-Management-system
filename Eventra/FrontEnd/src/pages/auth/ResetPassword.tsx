@@ -29,7 +29,6 @@ const ResetPassword: React.FC = () => {
       return;
     }
 
-    // Validate the token
     validateToken();
   }, [token]);
 
@@ -91,7 +90,6 @@ const ResetPassword: React.FC = () => {
       return;
     }
 
-    // Validate passwords
     const passwordErrors = validatePassword(formData.password);
     if (passwordErrors.length > 0) {
       setMessage({ type: 'error', text: passwordErrors.join('. ') });
@@ -111,7 +109,6 @@ const ResetPassword: React.FC = () => {
       
       if (response.success) {
         setMessage({ type: 'success', text: response.message });
-        // Redirect to login after 3 seconds
         setTimeout(() => {
           navigate('/login');
         }, 3000);

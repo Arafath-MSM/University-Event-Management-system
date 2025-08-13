@@ -8,20 +8,16 @@ require_once '../../config/cors.php';
 require_once '../../config/database.php';
 require_once '../../models/Venue.php';
 
-// Get database connection
 $database = new Database();
 $db = $database->getConnection();
 
-// Initialize venue object
 $venue = new Venue($db);
 
-// Get query parameters
 $search = $_GET['search'] ?? null;
 $type = $_GET['type'] ?? null;
 $min_capacity = $_GET['min_capacity'] ?? null;
 
 try {
-    // Read venues
     $stmt = $venue->read($search, $type, $min_capacity);
     $venues = [];
     
@@ -40,7 +36,6 @@ try {
         );
     }
     
-    // Set response code - 200 OK
     http_response_code(200);
     echo json_encode(array(
         "success" => true,
@@ -49,7 +44,6 @@ try {
     ));
     
 } catch (Exception $e) {
-    // Set response code - 500 Internal Server Error
     http_response_code(500);
     echo json_encode(array(
         "success" => false,

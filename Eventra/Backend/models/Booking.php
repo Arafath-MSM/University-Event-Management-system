@@ -25,7 +25,6 @@ class Booking {
         $this->conn = $db;
     }
 
-    // Create new booking
     public function create() {
         $query = "INSERT INTO " . $this->table_name . "
                 SET
@@ -41,12 +40,10 @@ class Booking {
 
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize inputs
         $this->event_title = htmlspecialchars($this->event_title ?? '');
         $this->description = htmlspecialchars($this->description ?? '');
         $this->facilities = htmlspecialchars($this->facilities ?? '');
 
-        // Bind values
         $stmt->bindParam(":user_id", $this->user_id);
         $stmt->bindParam(":venue_id", $this->venue_id);
         $stmt->bindParam(":event_title", $this->event_title);
@@ -63,7 +60,6 @@ class Booking {
         return false;
     }
 
-    // Read all bookings with filters
     public function read($user_id = null, $status = null, $search = null, $date_from = null, $date_to = null) {
         $query = "SELECT b.*, v.name as venue_name, u.name as user_name 
                   FROM " . $this->table_name . " b
@@ -107,7 +103,6 @@ class Booking {
         $query .= " ORDER BY b.created_at DESC";
         $stmt = $this->conn->prepare($query);
 
-        // Bind parameters
         foreach ($params as $index => $param) {
             $stmt->bindParam($index + 1, $param);
         }
@@ -116,7 +111,6 @@ class Booking {
         return $stmt;
     }
 
-    // Read single booking
     public function readOne() {
         $query = "SELECT b.*, v.name as venue_name, u.name as user_name 
                   FROM " . $this->table_name . " b
@@ -146,7 +140,6 @@ class Booking {
         return false;
     }
 
-    // Update booking
     public function update() {
         $query = "UPDATE " . $this->table_name . "
                 SET
@@ -161,12 +154,10 @@ class Booking {
 
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize inputs
         $this->event_title = htmlspecialchars($this->event_title ?? '');
         $this->description = htmlspecialchars($this->description ?? '');
         $this->facilities = htmlspecialchars($this->facilities ?? '');
 
-        // Bind values
         $stmt->bindParam(":event_title", $this->event_title);
         $stmt->bindParam(":description", $this->description);
         $stmt->bindParam(":date", $this->date);
@@ -182,7 +173,6 @@ class Booking {
         return false;
     }
 
-    // Delete booking
     public function delete() {
         $query = "DELETE FROM " . $this->table_name . " WHERE id = ?";
         $stmt = $this->conn->prepare($query);
@@ -194,7 +184,6 @@ class Booking {
         return false;
     }
 
-    // Check if venue is available for booking
     public function isVenueAvailable($venue_id, $date, $time) {
         $query = "SELECT COUNT(*) as count FROM " . $this->table_name . " 
                   WHERE venue_id = ? AND date = ? AND time = ? AND status IN ('pending', 'approved')";

@@ -30,15 +30,12 @@ echo "\n2. Testing PasswordResetUtil class...\n";
 require_once 'utils/PasswordResetUtil.php';
 
 try {
-    // Test token generation
     $token = PasswordResetUtil::generateToken();
     echo "   ✅ Token generated: " . substr($token, 0, 8) . "...\n";
     
-    // Test readable token
     $readableToken = PasswordResetUtil::generateReadableToken();
     echo "   ✅ Readable token: $readableToken\n";
     
-    // Test password validation
     $weakPassword = "123";
     $strongPassword = "StrongPass123!";
     
@@ -48,7 +45,6 @@ try {
     echo "   ✅ Weak password validation: " . ($weakResult['success'] ? 'PASS' : 'FAIL') . "\n";
     echo "   ✅ Strong password validation: " . ($strongResult['success'] ? 'PASS' : 'FAIL') . "\n";
     
-    // Test expiry time
     $expiry = PasswordResetUtil::getExpiryTime(2);
     echo "   ✅ Expiry time (2 hours): $expiry\n";
     
@@ -58,7 +54,6 @@ try {
     echo "   ❌ PasswordResetUtil error: " . $e->getMessage() . "\n";
 }
 
-// Test 3: Check database connection
 echo "\n3. Testing database connection...\n";
 try {
     require_once 'config/database.php';
@@ -66,7 +61,6 @@ try {
     $db = $database->getConnection();
     echo "   ✅ Database connection successful\n";
     
-    // Check if password_reset_tokens table exists
     $tableQuery = "SHOW TABLES LIKE 'password_reset_tokens'";
     $stmt = $db->prepare($tableQuery);
     $stmt->execute();
@@ -75,7 +69,6 @@ try {
     if ($tableExists) {
         echo "   ✅ password_reset_tokens table exists\n";
         
-        // Show table structure
         $describeQuery = "DESCRIBE password_reset_tokens";
         $stmt = $db->prepare($describeQuery);
         $stmt->execute();
@@ -94,21 +87,17 @@ try {
     echo "   ❌ Database connection failed: " . $e->getMessage() . "\n";
 }
 
-// Test 4: Test API endpoints (simulation)
 echo "\n4. Testing API endpoints...\n";
 
-// Simulate forgot password request
 echo "   📧 Forgot Password API:\n";
 echo "      - Endpoint: POST /api/auth/forgot-password.php\n";
 echo "      - Input: {\"email\": \"test@example.com\"}\n";
 echo "      - Expected: Generates reset token and sends email\n";
 
-// Simulate token validation
 echo "   🔍 Validate Token API:\n";
 echo "      - Endpoint: GET /api/auth/validate-reset-token.php?token=abc123\n";
 echo "      - Expected: Validates token and returns user info\n";
 
-// Simulate password reset
 echo "   🔐 Reset Password API:\n";
 echo "      - Endpoint: POST /api/auth/reset-password.php\n";
 echo "      - Input: {\"token\": \"abc123\", \"password\": \"NewPass123!\", \"confirm_password\": \"NewPass123!\"}\n";

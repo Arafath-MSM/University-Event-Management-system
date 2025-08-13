@@ -10,7 +10,6 @@ try {
     
     echo "1. Fixing existing records with empty status...\n";
     
-    // Update all records for event plan 20 to have status = 'signed'
     $updateQuery = "UPDATE signed_letters SET status = 'signed' WHERE event_plan_id = 20 AND (status = '' OR status IS NULL)";
     $stmt = $db->prepare($updateQuery);
     $stmt->execute();
@@ -20,7 +19,6 @@ try {
     
     echo "\n2. Verifying the fix...\n";
     
-    // Check the current status of all records
     $checkQuery = "SELECT id, from_role, status FROM signed_letters WHERE event_plan_id = 20";
     $stmt = $db->prepare($checkQuery);
     $stmt->execute();
@@ -32,7 +30,6 @@ try {
     
     echo "\n3. Testing getSignedLetters query again...\n";
     
-    // Test the exact query from getSignedLetters function
     $testQuery = "SELECT 
                     sl.letter_content,
                     sl.letter_type,
@@ -61,12 +58,10 @@ try {
     
     echo "\n4. Checking file paths...\n";
     
-    // The issue might be that the files were uploaded to a different location
-    // Let's check what's actually in the uploads directory
     $uploadsDir = "uploads/signed-letters";
     if (is_dir($uploadsDir)) {
         $files = scandir($uploadsDir);
-        $fileCount = count($files) - 2; // Exclude . and ..
+        $fileCount = count($files) - 2; 
         echo "   Files in uploads directory: {$fileCount}\n";
         
         if ($fileCount > 0) {

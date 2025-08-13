@@ -7,7 +7,6 @@ try {
     
     echo "🔍 Checking records after fix...\n\n";
     
-    // Check all records for event plan 20
     $sql = "SELECT id, from_role, status, letter_type FROM signed_letters WHERE event_plan_id = 20";
     $stmt = $db->prepare($sql);
     $stmt->execute();
@@ -31,7 +30,6 @@ try {
     if ($result['count'] == 0) {
         echo "\n❌ Still no results. Let me check each condition separately:\n";
         
-        // Check each condition
         $sql1 = "SELECT COUNT(*) as count FROM signed_letters WHERE event_plan_id = 20";
         $stmt = $db->prepare($sql1);
         $stmt->execute();

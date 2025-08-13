@@ -10,20 +10,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../../config/database.php';
 
-// Initialize database connection
 $database = new Database();
 $conn = $database->getConnection();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
-        // Get event plan ID from query parameters
         $eventPlanId = isset($_GET['eventPlanId']) ? (int)$_GET['eventPlanId'] : null;
         
         if (!$eventPlanId) {
             throw new Exception('Event plan ID is required');
         }
         
-        // Fetch authority signed letters for this event plan
         $query = "SELECT 
                     sl.id,
                     sl.from_role,

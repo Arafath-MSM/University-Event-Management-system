@@ -36,7 +36,6 @@ try {
     
     echo "2. Trying different update approaches...\n";
     
-    // Approach 1: Update empty strings
     echo "   Approach 1: Updating empty strings...\n";
     $update1 = "UPDATE signed_letters SET status = 'signed' WHERE event_plan_id = 20 AND status = ''";
     $stmt = $db->prepare($update1);
@@ -44,7 +43,6 @@ try {
     $affected1 = $stmt->rowCount();
     echo "     Updated {$affected1} records\n";
     
-    // Approach 2: Update NULL values
     echo "   Approach 2: Updating NULL values...\n";
     $update2 = "UPDATE signed_letters SET status = 'signed' WHERE event_plan_id = 20 AND status IS NULL";
     $stmt = $db->prepare($update2);
@@ -52,7 +50,6 @@ try {
     $affected2 = $stmt->rowCount();
     echo "     Updated {$affected2} records\n";
     
-    // Approach 3: Update both conditions
     echo "   Approach 3: Updating both empty and NULL...\n";
     $update3 = "UPDATE signed_letters SET status = 'signed' WHERE event_plan_id = 20 AND (status = '' OR status IS NULL)";
     $stmt = $db->prepare($update3);

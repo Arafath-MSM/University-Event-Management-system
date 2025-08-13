@@ -5,7 +5,6 @@ try {
     $database = new Database();
     $db = $database->getConnection();
     
-    // Fix all records for event plan 20
     $sql = "UPDATE signed_letters SET status = 'signed' WHERE event_plan_id = 20";
     $stmt = $db->prepare($sql);
     $stmt->execute();
@@ -13,7 +12,6 @@ try {
     
     echo "✅ Updated {$affected} records to status = 'signed'\n";
     
-    // Verify the fix
     $sql = "SELECT COUNT(*) as count FROM signed_letters WHERE event_plan_id = 20 AND status = 'signed'";
     $stmt = $db->prepare($sql);
     $stmt->execute();

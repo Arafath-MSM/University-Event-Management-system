@@ -7,7 +7,6 @@
 echo "🧪 Testing Password Reset Email Functionality\n";
 echo "=============================================\n\n";
 
-// 1. Check if required files exist
 echo "1. Checking required files...\n";
 $requiredFiles = [
     'config/email.php',
@@ -25,17 +24,14 @@ foreach ($requiredFiles as $file) {
 
 echo "\n";
 
-// 2. Test email configuration
 echo "2. Testing email configuration...\n";
 try {
     require_once 'config/email.php';
     echo "   ✅ Email configuration loaded\n";
     
-    // Test email service initialization
     if (isset($emailService)) {
         echo "   ✅ Email service initialized\n";
         
-        // Test connection
         $connectionTest = $emailService->testConnection();
         if ($connectionTest['success']) {
             echo "   ✅ " . $connectionTest['message'] . "\n";
@@ -52,7 +48,6 @@ try {
 
 echo "\n";
 
-// 3. Test password reset email service
 echo "3. Testing Password Reset Email Service...\n";
 try {
     require_once 'services/PasswordResetEmailService.php';
@@ -60,7 +55,6 @@ try {
     $passwordResetEmailService = new PasswordResetEmailService();
     echo "   ✅ Password Reset Email Service initialized\n";
     
-    // Test connection through the service
     $connectionTest = $passwordResetEmailService->testConnection();
     if ($connectionTest['success']) {
         echo "   ✅ " . $connectionTest['message'] . "\n";
@@ -74,19 +68,15 @@ try {
 
 echo "\n";
 
-// 4. Test email templates
 echo "4. Testing email templates...\n";
 try {
     $passwordResetEmailService = new PasswordResetEmailService();
     
-    // Test password reset email template
     $testToken = "test_token_123456789";
     $testLink = "http://localhost/test-reset?token=" . $testToken;
     
-    // Use reflection to test private methods
     $reflection = new ReflectionClass($passwordResetEmailService);
     
-    // Test password reset email body generation
     $method = $reflection->getMethod('generatePasswordResetEmailBody');
     $method->setAccessible(true);
     $resetEmailBody = $method->invoke($passwordResetEmailService, 'Test User', $testLink, $testToken);
@@ -97,7 +87,6 @@ try {
         echo "   ❌ Password reset email template generation failed\n";
     }
     
-    // Test confirmation email body generation
     $method = $reflection->getMethod('generatePasswordResetConfirmationEmailBody');
     $method->setAccessible(true);
     $confirmationEmailBody = $method->invoke($passwordResetEmailService, 'Test User');
@@ -114,7 +103,6 @@ try {
 
 echo "\n";
 
-// 5. Test database connection (if available)
 echo "5. Testing database connection...\n";
 try {
     require_once 'config/database.php';
@@ -125,7 +113,6 @@ try {
     if ($db) {
         echo "   ✅ Database connection successful\n";
         
-        // Check if password_reset_tokens table exists
         $stmt = $db->query("SHOW TABLES LIKE 'password_reset_tokens'");
         if ($stmt->rowCount() > 0) {
             echo "   ✅ password_reset_tokens table exists\n";
@@ -133,7 +120,6 @@ try {
             echo "   ❌ password_reset_tokens table not found\n";
         }
         
-        // Check if users table exists
         $stmt = $db->query("SHOW TABLES LIKE 'users'");
         if ($stmt->rowCount() > 0) {
             echo "   ✅ users table exists\n";
@@ -151,7 +137,6 @@ try {
 
 echo "\n";
 
-// 6. Summary and recommendations
 echo "🏁 Testing completed!\n\n";
 
 echo "📋 Summary:\n";

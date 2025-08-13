@@ -1,4 +1,3 @@
--- Update notifications table to include event plan notification types
 ALTER TABLE notifications 
 MODIFY COLUMN type ENUM(
     'booking_request', 

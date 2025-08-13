@@ -7,19 +7,15 @@ header('Access-Control-Allow-Headers: Access-Control-Allow-Headers, Content-Type
 require_once '../../config/database.php';
 require_once '../../models/User.php';
 
-// Create database connection
 $database = new Database();
 $db = $database->getConnection();
 
-// Create user object
 $user = new User($db);
 
-// Get query parameters
 $role = $_GET['role'] ?? null;
 $search = $_GET['search'] ?? null;
 
-try {
-    // Read users with filters
+try {   
     $result = $user->read($role, $search);
     
     if ($result) {

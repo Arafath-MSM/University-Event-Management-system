@@ -9,19 +9,15 @@ require_once '../../config/database.php';
 require_once '../../models/Venue.php';
 require_once '../../utils/JWTUtil.php';
 
-// Get database connection
 $database = new Database();
 $db = $database->getConnection();
 
-// Initialize venue object
 $venue = new Venue($db);
 
-// Get posted data
 $data = json_decode(file_get_contents("php://input"));
 
 if(!empty($data->name) && !empty($data->capacity) && !empty($data->location) && !empty($data->type)) {
     
-    // Set venue property values
     $venue->name = $data->name;
     $venue->capacity = $data->capacity;
     $venue->location = $data->location;
@@ -30,10 +26,8 @@ if(!empty($data->name) && !empty($data->capacity) && !empty($data->location) && 
     $venue->restrictions = $data->restrictions ?? '';
     $venue->images = $data->images ?? [];
     
-    // Create the venue
     if($venue_id = $venue->create()) {
         
-        // Get the created venue data
         $venue->id = $venue_id;
         $venue->readOne();
         
@@ -56,12 +50,10 @@ if(!empty($data->name) && !empty($data->capacity) && !empty($data->location) && 
             "venue" => $venue_item
         );
         
-        // Set response code - 201 Created
         http_response_code(201);
         echo json_encode($response_data);
         
     } else {
-        // Set response code - 503 Service unavailable
         http_response_code(503);
         echo json_encode(array(
             "success" => false,
@@ -70,7 +62,6 @@ if(!empty($data->name) && !empty($data->capacity) && !empty($data->location) && 
     }
     
 } else {
-    // Set response code - 400 Bad request
     http_response_code(400);
     echo json_encode(array(
         "success" => false,

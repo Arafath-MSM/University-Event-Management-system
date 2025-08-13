@@ -41,7 +41,6 @@ class JWTUtil {
         
         $payloadData = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $payload)), true);
         
-        // Check if token is expired
         if (isset($payloadData['exp']) && $payloadData['exp'] < time()) {
             return false;
         }

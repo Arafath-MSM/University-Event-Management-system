@@ -26,11 +26,8 @@ class SignedLetter {
         $this->conn = $db;
     }
 
-    // Create new signed letter
     public function create() {
-        // Determine if this is for a booking or event plan
         if ($this->booking_id) {
-            // For bookings
             $query = "INSERT INTO " . $this->table_name . "
                     SET
                         booking_id = :booking_id,
@@ -41,7 +38,6 @@ class SignedLetter {
                         signature_data = :signature_data,
                         status = :status";
         } else {
-            // For event plans
             $query = "INSERT INTO " . $this->table_name . "
                     SET
                         event_plan_id = :event_plan_id,
@@ -55,11 +51,9 @@ class SignedLetter {
 
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize inputs
         $this->letter_content = htmlspecialchars($this->letter_content ?? '');
         $this->signature_data = $this->signature_data ? json_encode($this->signature_data) : null;
 
-        // Bind values
         if ($this->booking_id) {
             $stmt->bindParam(":booking_id", $this->booking_id);
         } else {
@@ -78,7 +72,6 @@ class SignedLetter {
         return false;
     }
 
-    // Read signed letters
     public function read($booking_id = null, $event_plan_id = null, $from_role = null, $status = null, $letter_type = null) {
         $query = "SELECT sl.*, 
                          COALESCE(b.event_title, ep.title) as event_title,
@@ -125,7 +118,6 @@ class SignedLetter {
 
         $stmt = $this->conn->prepare($query);
 
-        // Bind parameters using named parameters
         foreach ($params as $key => $value) {
             $stmt->bindValue($key, $value);
         }
@@ -134,7 +126,6 @@ class SignedLetter {
         return $stmt;
     }
 
-    // Read single signed letter
     public function readOne() {
         $query = "SELECT sl.*, 
                          COALESCE(b.event_title, ep.title) as event_title,
@@ -170,7 +161,6 @@ class SignedLetter {
         return false;
     }
 
-    // Update signed letter
     public function update() {
         $query = "UPDATE " . $this->table_name . "
                 SET
@@ -186,11 +176,9 @@ class SignedLetter {
 
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize inputs
         $this->letter_content = htmlspecialchars($this->letter_content ?? '');
         $this->signature_data = $this->signature_data ? json_encode($this->signature_data) : null;
 
-        // Bind values
         $stmt->bindParam(":from_role", $this->from_role);
         $stmt->bindParam(":to_role", $this->to_role);
         $stmt->bindParam(":letter_type", $this->letter_type);
@@ -207,21 +195,18 @@ class SignedLetter {
         return false;
     }
 
-    // Mark letter as sent
     public function markAsSent() {
         $this->status = 'sent';
         $this->sent_at = date('Y-m-d H:i:s');
         return $this->update();
     }
 
-    // Mark letter as received
     public function markAsReceived() {
         $this->status = 'received';
         $this->received_at = date('Y-m-d H:i:s');
         return $this->update();
     }
 
-    // Delete signed letter
     public function delete() {
         $query = "DELETE FROM " . $this->table_name . " WHERE id = ?";
         $stmt = $this->conn->prepare($query);

@@ -14,7 +14,6 @@ $eventPlan = new EventPlan($db);
 $signedLetter = new SignedLetter($db);
 $notification = new Notification($db);
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -24,7 +23,6 @@ if (!$payload) {
     exit();
 }
 
-// Check if user is administration
 if ($payload['role'] !== 'administration') {
     http_response_code(403);
     echo json_encode(array("success" => false, "message" => "Access denied. Only Administration can approve event plans."));
@@ -49,11 +47,8 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
     }
     
     if ($data->action === 'approve') {
-        // Don't change the event plan status - keep it as 'submitted'
-        // Just create the signed letter and send notification
         $letter_content = $data->comment ?? "Event plan '{$eventPlan->title}' has been approved by Administration. All administrative requirements have been met.";
     } else {
-        // For rejection, we can change the status to rejected
         $eventPlan->status = 'rejected';
         $eventPlan->remarks = $data->comment ?? '';
         $eventPlan->update();
@@ -61,7 +56,6 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
         $letter_content = $data->comment ?? "Event plan '{$eventPlan->title}' has been rejected by Administration.";
     }
     
-    // Create signed letter
     $signedLetter->event_plan_id = $data->event_plan_id;
     $signedLetter->from_role = 'administration';
     $signedLetter->to_role = 'super-admin';
@@ -71,10 +65,8 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
     $signedLetter->status = 'sent';
     
     if ($signedLetter->create()) {
-        // Mark letter as sent
         $signedLetter->markAsSent();
         
-        // Create notification for the event plan owner
         $notification->createEventPlanNotification(
             $eventPlan->user_id,
             $data->action === 'approve' ? 'University Administration Approval Received' : 'Event Plan Rejected',
@@ -85,7 +77,6 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
             $data->event_plan_id
         );
         
-        // Create notification for Administration (current user)
         $notification->createEventPlanNotification(
             $payload['user_id'],
             $data->action === 'approve' ? 'Event Plan Approval Sent' : 'Event Plan Rejected',
@@ -96,8 +87,6 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
             $data->event_plan_id
         );
 
-        // Create notification for Super-Admin
-        // First, get super-admin user ID
         require_once '../../models/User.php';
         $userModel = new User($db);
         $superAdminUsers = $userModel->read('super-admin');

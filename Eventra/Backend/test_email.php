@@ -6,7 +6,6 @@
  * Run this script to verify your email configuration.
  */
 
-// Enable error reporting for testing
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -14,19 +13,16 @@ echo "🧪 Testing Email Functionality\n";
 echo "==============================\n\n";
 
 try {
-    // Test 1: Check if email config exists
     echo "1. Checking email configuration...\n";
     if (!file_exists('config/email.php')) {
         throw new Exception("Email configuration file not found. Please create config/email.php");
     }
     echo "✅ Email configuration file found\n\n";
     
-    // Test 2: Test email service initialization
     echo "2. Testing email service initialization...\n";
     require_once 'config/email.php';
     echo "✅ Email service initialized\n\n";
     
-    // Test 3: Test SMTP connection
     echo "3. Testing SMTP connection...\n";
     $connectionTest = $emailService->testConnection();
     
@@ -39,11 +35,10 @@ try {
         echo "   This might be due to incorrect credentials or network issues\n\n";
     }
     
-    // Test 4: Test simple email sending (if connection successful)
     if ($connectionTest['success']) {
         echo "4. Testing simple email sending...\n";
         
-        $testEmail = 'msmarafath02@gmail.com'; // Change this to a real email for testing
+        $testEmail = 'msmarafath02@gmail.com'; 
         $testSubject = 'Event Management System - Test Email';
         $testBody = "
         <html>
@@ -73,7 +68,6 @@ try {
         echo "\n";
     }
     
-    // Test 5: Test signed letters endpoint
     echo "5. Testing signed letters API endpoint...\n";
     if (file_exists('api/event-plans/send-signed-letters.php')) {
         echo "✅ Signed letters API endpoint found\n";
@@ -81,7 +75,6 @@ try {
         echo "❌ Signed letters API endpoint not found\n";
     }
     
-    // Test 6: Check database table
     echo "6. Checking database setup...\n";
     if (file_exists('database/email_logs.sql')) {
         echo "✅ Email logs SQL script found\n";
@@ -99,7 +92,6 @@ try {
 
 echo "🏁 Testing completed!\n\n";
 
-// Display configuration summary
 echo "📋 Configuration Summary\n";
 echo "=======================\n";
 echo "Email Config File: " . (file_exists('config/email.php') ? '✅ Found' : '❌ Missing') . "\n";

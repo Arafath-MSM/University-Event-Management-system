@@ -4,7 +4,6 @@
  * Eventra ESRS Backend
  */
 
-// Database connection is passed in constructor
 
 class User {
     private $conn;
@@ -30,7 +29,7 @@ class User {
         $this->conn = $db;
     }
 
-    // Create new user
+    
     public function create() {
         $query = "INSERT INTO " . $this->table_name . "
                 SET
@@ -49,7 +48,7 @@ class User {
 
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize inputs - using htmlspecialchars only with null checks
+        
         $this->name = htmlspecialchars($this->name ?? '');
         $this->email = htmlspecialchars($this->email ?? '');
         $this->role = htmlspecialchars($this->role ?? '');
@@ -60,7 +59,7 @@ class User {
         $this->event_interests = htmlspecialchars($this->event_interests ?? '');
         $this->service_type = htmlspecialchars($this->service_type ?? '');
 
-        // Bind values
+        
         $stmt->bindParam(":name", $this->name);
         $stmt->bindParam(":email", $this->email);
         $stmt->bindParam(":password_hash", $this->password_hash);
@@ -80,7 +79,7 @@ class User {
         return false;
     }
 
-    // Read all users
+    
     public function read($role = null, $search = null) {
         $query = "SELECT * FROM " . $this->table_name;
         $conditions = [];
@@ -104,7 +103,7 @@ class User {
         
         $stmt = $this->conn->prepare($query);
         
-        // Bind parameters
+        
         foreach ($params as $key => $value) {
             $stmt->bindValue($key, $value);
         }
@@ -134,7 +133,7 @@ class User {
         return $users;
     }
 
-    // Read single user
+    
     public function readOne() {
         $query = "SELECT * FROM " . $this->table_name . " WHERE id = ? LIMIT 0,1";
         $stmt = $this->conn->prepare($query);
@@ -162,7 +161,7 @@ class User {
         return false;
     }
 
-    // Read user by email
+    
     public function readByEmail() {
         $query = "SELECT * FROM " . $this->table_name . " WHERE email = ? LIMIT 0,1";
         $stmt = $this->conn->prepare($query);
@@ -191,7 +190,7 @@ class User {
         return false;
     }
 
-    // Update user
+    
     public function update() {
         $query = "UPDATE " . $this->table_name . "
                 SET
@@ -210,7 +209,7 @@ class User {
 
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize inputs - using htmlspecialchars only with null checks
+        
         $this->name = htmlspecialchars($this->name ?? '');
         $this->email = htmlspecialchars($this->email ?? '');
         $this->role = htmlspecialchars($this->role ?? '');
@@ -221,7 +220,7 @@ class User {
         $this->event_interests = htmlspecialchars($this->event_interests ?? '');
         $this->service_type = htmlspecialchars($this->service_type ?? '');
 
-        // Bind values
+        
         $stmt->bindParam(":name", $this->name);
         $stmt->bindParam(":email", $this->email);
         $stmt->bindParam(":role", $this->role);
@@ -241,7 +240,7 @@ class User {
         return false;
     }
 
-    // Update password
+    
     public function updatePassword() {
         $query = "UPDATE " . $this->table_name . " SET password_hash = :password_hash WHERE id = :id";
         $stmt = $this->conn->prepare($query);
@@ -254,7 +253,6 @@ class User {
         return false;
     }
 
-    // Delete user
     public function delete() {
         $query = "DELETE FROM " . $this->table_name . " WHERE id = ?";
         $stmt = $this->conn->prepare($query);
@@ -266,7 +264,6 @@ class User {
         return false;
     }
 
-    // Search users
     public function search($keywords) {
         $query = "SELECT * FROM " . $this->table_name . "
                 WHERE
@@ -286,7 +283,6 @@ class User {
         return $stmt;
     }
 
-    // Get users by role
     public function getByRole($role) {
         $query = "SELECT * FROM " . $this->table_name . " WHERE role = ? ORDER BY created_at DESC";
         $stmt = $this->conn->prepare($query);
@@ -295,7 +291,6 @@ class User {
         return $stmt;
     }
 
-    // Check if email exists
     public function emailExists() {
         $query = "SELECT id FROM " . $this->table_name . " WHERE email = ?";
         $stmt = $this->conn->prepare($query);
@@ -308,7 +303,6 @@ class User {
         return false;
     }
 
-    // Get user count by role
     public function getCountByRole($role) {
         $query = "SELECT COUNT(*) as count FROM " . $this->table_name . " WHERE role = ?";
         $stmt = $this->conn->prepare($query);

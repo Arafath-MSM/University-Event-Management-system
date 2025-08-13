@@ -14,7 +14,6 @@ $eventPlan = new EventPlan($db);
 $signedLetter = new SignedLetter($db);
 $notification = new Notification($db);
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -24,7 +23,6 @@ if (!$payload) {
     exit();
 }
 
-// Check if user is vice-chancellor
 if ($payload['role'] !== 'vice-chancellor') {
     http_response_code(403);
     echo json_encode(array("success" => false, "message" => "Access denied. Only Vice Chancellor can approve event plans."));
@@ -48,12 +46,10 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
         exit();
     }
     
-    // Update event plan status
     $new_status = ($data->action === 'approve') ? 'approved' : 'rejected';
     $eventPlan->status = $new_status;
     
     if ($eventPlan->update()) {
-        // Create signed letter
         $letter_content = $data->comment ?? '';
         if ($data->action === 'approve') {
             $letter_content = $letter_content ?: "Event plan '{$eventPlan->title}' has been approved by Vice Chancellor. All academic requirements have been met.";
@@ -61,7 +57,7 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
             $letter_content = $letter_content ?: "Event plan '{$eventPlan->title}' has been rejected by Vice Chancellor.";
         }
         
-        $signedLetter->booking_id = $eventPlan->id; // Using event_plan_id as booking_id for now
+        $signedLetter->booking_id = $eventPlan->id;
         $signedLetter->from_role = 'vice-chancellor';
         $signedLetter->to_role = 'super-admin';
         $signedLetter->letter_type = $data->action === 'approve' ? 'approval' : 'rejection';
@@ -70,10 +66,8 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
         $signedLetter->status = 'sent';
         
         if ($signedLetter->create()) {
-            // Mark letter as sent
             $signedLetter->markAsSent();
             
-            // Create notification for the event plan owner
             $notification->createAdminNotification(
                 $eventPlan->user_id,
                 "Event Plan " . ucfirst($new_status),
@@ -81,7 +75,6 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
                 'event_plan_status'
             );
             
-            // Create notification for super-admin
             $notification->createAdminNotification(
                 $payload['user_id'],
                 "Event Plan " . ucfirst($new_status),

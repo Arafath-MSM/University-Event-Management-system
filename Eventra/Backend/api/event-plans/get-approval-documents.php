@@ -10,7 +10,6 @@ $database = new Database();
 $db = $database->getConnection();
 $eventPlan = new EventPlan($db);
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -20,7 +19,6 @@ if (!$payload) {
     exit();
 }
 
-// Get event plan ID from query parameters
 $event_plan_id = isset($_GET['event_plan_id']) ? (int)$_GET['event_plan_id'] : null;
 
 if (!$event_plan_id) {

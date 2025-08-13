@@ -5,7 +5,6 @@ require_once '../../services/PasswordResetEmailService.php';
 
 header('Content-Type: application/json');
 
-// Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(array("success" => false, "message" => "Method not allowed"));
@@ -13,7 +12,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 try {
-    // Get JSON input
     $input = json_decode(file_get_contents('php://input'), true);
     
     if (!isset($input['email']) || empty($input['email'])) {
@@ -24,25 +22,21 @@ try {
     
     $email = trim($input['email']);
     
-    // Validate email format
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         http_response_code(400);
         echo json_encode(array("success" => false, "message" => "Invalid email format"));
         exit();
     }
     
-    // Get database connection
     $database = new Database();
     $db = $database->getConnection();
     
-    // Check if user exists
     $userQuery = "SELECT id, name, email, role FROM users WHERE email = ? AND status = 'active'";
     $stmt = $db->prepare($userQuery);
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$user) {
-        // Don't reveal if user exists or not for security
         http_response_code(200);
         echo json_encode(array(
             "success" => true, 
@@ -51,24 +45,19 @@ try {
         exit();
     }
     
-    // Generate reset token
     $resetToken = bin2hex(random_bytes(32));
-    $tokenExpiry = date('Y-m-d H:i:s', strtotime('+1 hour')); // Token expires in 1 hour
+    $tokenExpiry = date('Y-m-d H:i:s', strtotime('+1 hour'));
     
-    // Store reset token in database
     $tokenQuery = "INSERT INTO password_reset_tokens (user_id, token, expires_at, created_at) VALUES (?, ?, ?, NOW())";
     $stmt = $db->prepare($tokenQuery);
     $stmt->execute([$user['id'], $resetToken, $tokenExpiry]);
     
-    // Build reset link
     $resetLink = "http://localhost:8080/reset-password?token=" . $resetToken;
     
-    // Send password reset email using real email service
     $emailService = new PasswordResetEmailService();
     $emailSent = $emailService->sendPasswordResetEmail($user['email'], $user['name'], $resetToken, $resetLink);
     
     if ($emailSent) {
-        // Log the password reset request to activity_logs if table exists
         try {
             $logQuery = "INSERT INTO activity_logs (user_id, action, details, type, target_id, target_type, ip_address, user_agent, created_at) VALUES (?, 'password_reset_requested', 'Password reset requested for user: ?', 'user', ?, 'user', ?, ?, NOW())";
             $stmt = $db->prepare($logQuery);
@@ -80,13 +69,10 @@ try {
                 $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
             ]);
         } catch (Exception $logError) {
-            // If logging fails, don't fail the whole request
             error_log("Failed to log password reset request: " . $logError->getMessage());
         }
         
-        // Check if we're using mock email service
         if (defined('USE_MOCK_EMAIL') && USE_MOCK_EMAIL) {
-            // For development/testing: Log the reset token and link
             error_log("=== PASSWORD RESET TOKEN FOR TESTING ===");
             error_log("User: " . $user['email']);
             error_log("Reset Token: " . $resetToken);
@@ -111,7 +97,6 @@ try {
             ));
         }
     } else {
-        // If email failed, delete the token
         $deleteQuery = "DELETE FROM password_reset_tokens WHERE user_id = ? AND token = ?";
         $stmt = $db->prepare($deleteQuery);
         $stmt->execute([$user['id'], $resetToken]);

@@ -4,7 +4,6 @@ require_once '../../config/database.php';
 
 header('Content-Type: application/json');
 
-// Only allow GET requests
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
     echo json_encode(array("success" => false, "message" => "Method not allowed"));
@@ -12,7 +11,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 try {
-    // Get token from query parameters
     $token = $_GET['token'] ?? '';
 
     if (empty($token)) {
@@ -21,11 +19,9 @@ try {
         exit();
     }
 
-    // Get database connection
     $database = new Database();
     $db = $database->getConnection();
     
-    // Validate reset token
     $tokenQuery = "
         SELECT 
             prt.id,
@@ -50,9 +46,7 @@ try {
         exit();
     }
     
-    // Check if token has expired
     if (strtotime($resetToken['expires_at']) < time()) {
-        // Mark token as used since it's expired
         $updateQuery = "UPDATE password_reset_tokens SET used = 1 WHERE id = ?";
         $stmt = $db->prepare($updateQuery);
         $stmt->execute([$resetToken['id']]);
@@ -62,7 +56,6 @@ try {
         exit();
     }
     
-    // Token is valid, return user information
     http_response_code(200);
     echo json_encode(array(
         "success" => true,

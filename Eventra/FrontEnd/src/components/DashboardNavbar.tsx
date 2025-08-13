@@ -106,7 +106,7 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
   return (
     <>
       {showFullNavbar ? (
-        <nav className="border-b border-gray-200 px-8 py-4 flex items-center justify-between w-full" style={{ backgroundColor: '#4d0011' }}>
+        <nav className="border-b border-gray-200 px-4 py-4 flex items-center justify-between w-full" style={{ backgroundColor: '#4d0011' }}>
           <div className="flex items-center">
             <img src="/Logo UWU.png" alt="Eventra Logo" className="h-8 w-auto mr-2" />
             <span className="text-2xl font-bold text-blue-600">Eventra</span>

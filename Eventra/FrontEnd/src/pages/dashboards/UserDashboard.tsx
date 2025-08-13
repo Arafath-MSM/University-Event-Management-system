@@ -238,11 +238,11 @@ const UserDashboard: React.FC = () => {
       {/* Dashboard Background - solid Rose color */}
       <div className="relative min-h-screen w-full overflow-x-hidden" style={{ backgroundColor: '#bd7880' }}>
          {/* Removed background image and overlay for solid color */}
-         <div className="relative z-10 space-y-8 animate-fade-in pt-8 pb-8 w-full">
-           <div className="bg-black bg-opacity-30 rounded-2xl p-8 w-full max-w-none mx-0">
-             <div className="w-full">
-              {/* Welcome Section */}
-              <div className="bg-transparent text-white py-12 px-8 shadow-none">
+                   <div className="relative z-10 space-y-8 animate-fade-in pt-8 pb-8 w-full px-0">
+            <div className="bg-black bg-opacity-30 rounded-2xl p-4 w-full mx-0">
+              <div className="w-full">
+                             {/* Welcome Section */}
+               <div className="bg-transparent text-white py-12 px-4 shadow-none">
                 <div className="flex items-center justify-between">
                   <div>
                     <h1 className="text-3xl font-extrabold mb-2">

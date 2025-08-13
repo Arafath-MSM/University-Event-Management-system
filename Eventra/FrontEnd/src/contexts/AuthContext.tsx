@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import apiService from '../services/api';
 
 interface User {
   id: string;
@@ -20,7 +21,8 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string, role: string) => Promise<boolean>;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   register: (userData: RegisterData) => Promise<boolean>;
   logout: () => void;
 }
@@ -38,71 +40,94 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const PUBLIC_ROLES = ['student', 'faculty'];
 const AUTHORITY_ROLES = ['super-admin', 'service-provider', 'vice-chancellor', 'administration', 'student-union', 'warden'];
 
-// Mock users for demo - Pre-created authority accounts
-const mockUsers: User[] = [
-  // Authority Roles (Admin-Created Accounts)
-  { id: '1', name: 'Super Administrator', email: 'superadmin@university.edu', role: 'super-admin' },
-  { id: '2', name: 'Sound Pro', email: 'soundpro@university.edu', role: 'service-provider', serviceType: 'Sound System' },
-  { id: '3', name: 'UvaRayon Media', email: 'uvarayonmedia@university.edu', role: 'service-provider', serviceType: 'Media' },
-  { id: '4', name: 'Vice Chancellor', email: 'vicechancellor@university.edu', role: 'vice-chancellor' },
-  { id: '5', name: 'Administration of UWU', email: 'administrationuwu@university.edu', role: 'administration' },
-  { id: '6', name: 'Student Union', email: 'studentunion@university.edu', role: 'student-union' },
-  { id: '7', name: 'Warden', email: 'warden@university.edu', role: 'warden' },
-  
-  // Public Roles (Can be created through registration)
-  { id: '8', name: 'Amal', email: 'amal@university.edu', role: 'student' },
-  { id: '9', name: 'FAS', email: 'fas@university.edu', role: 'faculty' },
-];
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Check authentication status on app startup
   useEffect(() => {
-    // Check for stored user session
-    const storedUser = localStorage.getItem('eventra_user');
-    console.log('Checking stored user:', storedUser);
-    if (storedUser) {
+    const checkAuthStatus = async () => {
       try {
-        const userData = JSON.parse(storedUser);
-        console.log('Found stored user:', userData);
-        setUser(userData);
-        setIsAuthenticated(true);
+        const token = localStorage.getItem('eventra_token');
+        const storedUser = localStorage.getItem('eventra_user');
+        
+        console.log('Checking authentication status...');
+        console.log('Token exists:', !!token);
+        console.log('Stored user exists:', !!storedUser);
+        
+        if (token && storedUser) {
+          try {
+            const userData = JSON.parse(storedUser);
+            
+            // Verify token is still valid by making a test API call
+            const isValid = await apiService.isAuthenticated();
+            
+            if (isValid) {
+              console.log('Token is valid, restoring user session');
+              setUser(userData);
+              setIsAuthenticated(true);
+            } else {
+              console.log('Token is invalid, clearing session');
+              localStorage.removeItem('eventra_token');
+              localStorage.removeItem('eventra_user');
+              setUser(null);
+              setIsAuthenticated(false);
+            }
+          } catch (error) {
+            console.error('Error parsing stored user:', error);
+            localStorage.removeItem('eventra_token');
+            localStorage.removeItem('eventra_user');
+            setUser(null);
+            setIsAuthenticated(false);
+          }
+        } else {
+          console.log('No stored authentication found');
+          setUser(null);
+          setIsAuthenticated(false);
+        }
       } catch (error) {
-        console.error('Error parsing stored user:', error);
-        localStorage.removeItem('eventra_user');
+        console.error('Error checking auth status:', error);
+        setUser(null);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+
+    checkAuthStatus();
   }, []);
 
-  const login = async (email: string, password: string, role: string): Promise<boolean> => {
-    console.log('AuthContext: Login attempt for:', { email, role, password: password ? 'provided' : 'missing' });
-    console.log('Available mock users:', mockUsers);
+  const login = async (email: string, password: string): Promise<boolean> => {
+    console.log('AuthContext: Login attempt for:', { email, password: password ? 'provided' : 'missing' });
     
-    // Mock authentication - in real app, this would be an API call
-    let foundUser = mockUsers.find(u => {
-      console.log('Checking user:', u.email, 'against:', email, 'role:', u.role, 'against:', role);
-      return u.email === email && u.role === role;
-    });
-    
-    // If registering a new service provider, assign a default serviceType if not present
-    if (foundUser && foundUser.role === 'service-provider' && !foundUser.serviceType) {
-      foundUser = { ...foundUser, serviceType: 'Sound System' };
+    try {
+      const response = await apiService.login(email, password);
+      
+      if (response.success && response.user && response.token) {
+        console.log('Authentication successful:', response.user);
+        
+        const userData: User = {
+          id: response.user.id.toString(),
+          name: response.user.name,
+          email: response.user.email,
+          role: response.user.role as User['role'],
+          serviceType: response.user.service_type as User['serviceType'],
+        };
+        
+        setUser(userData);
+        setIsAuthenticated(true);
+        localStorage.setItem('eventra_user', JSON.stringify(userData));
+        localStorage.setItem('eventra_token', response.token);
+        return true;
+      } else {
+        console.log('Authentication failed:', response.message);
+        return false;
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      return false;
     }
-    
-    console.log('Found user:', foundUser);
-    
-    // Use consistent demo password for all accounts
-    if (foundUser && password === 'password123') {
-      console.log('Authentication successful');
-      setUser(foundUser);
-      setIsAuthenticated(true);
-      localStorage.setItem('eventra_user', JSON.stringify(foundUser));
-      return true;
-    }
-    
-    console.log('Authentication failed');
-    return false;
   };
 
   const register = async (userData: RegisterData): Promise<boolean> => {
@@ -114,43 +139,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('This role cannot be registered publicly. Please contact your administrator.');
     }
     
-    // Check if user already exists
-    const existingUser = mockUsers.find(u => u.email === userData.email);
-    if (existingUser) {
-      console.error('Registration failed: User already exists');
-      throw new Error('An account with this email already exists.');
+    try {
+      const response = await apiService.register(userData);
+      
+      if (response.success && response.user && response.token) {
+        console.log('Registration successful:', response.user);
+        
+        const userData: User = {
+          id: response.user.id.toString(),
+          name: response.user.name,
+          email: response.user.email,
+          role: response.user.role as User['role'],
+        };
+        
+        // Automatically log in the user after successful registration
+        setUser(userData);
+        setIsAuthenticated(true);
+        localStorage.setItem('eventra_user', JSON.stringify(userData));
+        localStorage.setItem('eventra_token', response.token);
+        
+        return true;
+      } else {
+        console.error('Registration failed:', response.message);
+        throw new Error(response.message || 'Registration failed');
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      throw error;
     }
-    
-    // Mock registration - in real app, this would be an API call
-    const newUser: User = {
-      id: Date.now().toString(),
-      name: userData.name,
-      email: userData.email,
-      role: userData.role as User['role'],
-    };
-    
-    // Add to mock users (in real app, this would be saved to database)
-    mockUsers.push(newUser);
-    console.log('User registered successfully:', newUser);
-    
-    // Automatically log in the user after successful registration
-    setUser(newUser);
-    setIsAuthenticated(true);
-    localStorage.setItem('eventra_user', JSON.stringify(newUser));
-    
-    return true;
   };
 
   const logout = () => {
     console.log('Logging out user');
     setUser(null);
     setIsAuthenticated(false);
+    localStorage.removeItem('eventra_token');
     localStorage.removeItem('eventra_user');
+    apiService.logout();
   };
 
   const value = {
     user,
     isAuthenticated,
+    isLoading,
     login,
     register,
     logout

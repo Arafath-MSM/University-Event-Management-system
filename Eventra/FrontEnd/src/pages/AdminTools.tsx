@@ -1,7 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import NotificationPopup from '../components/NotificationPopup';
 import { useLocation } from 'react-router-dom';
+import apiService from '../services/api';
+import { toast } from 'sonner';
 import { 
   Users, 
   MapPin, 
@@ -14,8 +16,29 @@ import {
   Eye,
   Download,
   UserPlus,
-  Bell
+  Bell,
+  RefreshCw
 } from 'lucide-react';
+
+/**
+ * Admin Tools - Super Admin Dashboard
+ * 
+ * Event Planning Workflow:
+ * 1. Event Plan submitted → automatically goes to Service Provider dashboard
+ * 2. Super Admin clicks "Notify Service Provider" → sends reminder notification
+ * 3. Service Provider approves/rejects → status updates, notification sent
+ * 4. Super Admin reviews all approvals (VC, Warden, Admin, SU, Service Provider)
+ * 5. Super Admin makes FINAL decision to approve/reject the event
+ * 
+ * Key Changes:
+ * - Event plans automatically go to Service Provider dashboard when submitted
+ * - "Notify Service Provider" button just sends reminder notifications
+ * - Event plans remain visible in approval queue throughout the process
+ * - Service Provider approval does NOT automatically approve the event
+ * - Super Admin must review ALL approvals before making final decision
+ * - Real-time notifications for service provider responses
+ * - Clear approval status display in View Details modal
+ */
 
 interface User {
   id: string;
@@ -35,13 +58,41 @@ interface PendingApproval {
   venue: string;
   date: string;
   details: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'submitted';
   approvalLetters?: {
     vc: string;
-    admin: string;
     warden: string;
-    studentUnion: string;
+    serviceProvider: string;
+    administration: string;
   };
+  authorityApprovals?: {
+    vc: boolean;
+    warden: boolean;
+    administration: boolean;
+    student_union: boolean;
+  };
+  signedLetters?: {
+    vc?: string;
+    warden?: string;
+    administration?: string;
+    student_union?: string;
+  };
+  serviceProviderStatus?: 'pending' | 'approved' | 'rejected' | 'notified';
+}
+
+interface Notification {
+  id: number;
+  title: string;
+  message: string;
+  type: 'booking_request' | 'booking_approved' | 'booking_rejected' | 'booking_action_confirmation' | 'letter_sent' | 'letter_received' | 'service_provider_notified' | 'service_provider_approved' | 'service_provider_rejected' | 'final_approval' | 'system';
+  status: 'unread' | 'read';
+  related_booking_id?: number;
+  related_venue_id?: number;
+  booking_title?: string;
+  venue_name?: string;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
 }
 
 const AdminTools: React.FC = () => {
@@ -63,249 +114,33 @@ const AdminTools: React.FC = () => {
   const [showViewDetailsModal, setShowViewDetailsModal] = useState(false);
   const [selectedViewApproval, setSelectedViewApproval] = useState<PendingApproval | null>(null);
   const [forwardedLetters, setForwardedLetters] = useState<{[key: string]: boolean}>({});
-  const [signedLetters, setSignedLetters] = useState<{[key: string]: string}>({});
-  const [notifications, setNotifications] = useState([
-    // Service Provider Notifications
-    {
-      id: 1,
-      type: 'approval',
-      source: 'service-provider',
-      authority: 'Audio Visual Services',
-      eventName: 'Research Conference 2025',
-      comment: 'All requested services are available. Projector and audio system will be set up 2 hours before the event. Lighting system requires additional setup time.',
-      timestamp: '2025-01-15 14:30:00',
-      status: 'unread'
-    },
-    {
-      id: 2,
-      type: 'rejection',
-      source: 'service-provider',
-      authority: 'Catering Services',
-      eventName: 'University Cultural Festival',
-      comment: 'Unable to provide catering services for 500 participants on the requested date. Kitchen capacity limited. Suggest alternative date or reduced menu.',
-      timestamp: '2025-01-15 13:45:00',
-      status: 'read'
-    },
-    {
-      id: 3,
-      type: 'approval',
-      source: 'service-provider',
-      authority: 'Security Services',
-      eventName: 'Tech Innovation Summit',
-      comment: 'Security services approved. Will provide 4 security personnel for the event. Additional crowd control measures recommended.',
-      timestamp: '2025-01-15 12:15:00',
-      status: 'unread'
-    },
-    // Authority Notifications
-    {
-      id: 4,
-      type: 'approval',
-      source: 'authority',
-      authority: 'Vice Chancellor',
-      eventName: 'Research Conference 2025',
-      comment: 'Event approved by Vice Chancellor. All academic requirements met. Research conference aligns with university objectives.',
-      timestamp: '2025-01-15 11:30:00',
-      status: 'unread'
-    },
-    {
-      id: 5,
-      type: 'rejection',
-      source: 'authority',
-      authority: 'Warden',
-      eventName: 'University Cultural Festival',
-      comment: 'Event rejected by Warden. Venue capacity concerns for 500 participants. Safety protocols need revision.',
-      timestamp: '2025-01-15 10:45:00',
-      status: 'unread'
-    },
-    {
-      id: 6,
-      type: 'approval',
-      source: 'authority',
-      authority: 'University Administration',
-      eventName: 'Tech Innovation Summit',
-      comment: 'Event approved by University Administration. Budget allocation confirmed. Administrative support will be provided.',
-      timestamp: '2025-01-15 09:15:00',
-      status: 'read'
-    },
-    {
-      id: 7,
-      type: 'approval',
-      source: 'authority',
-      authority: 'Student Union',
-      eventName: 'University Cultural Festival',
-      comment: 'Event approved by Student Union. Student participation confirmed. Cultural activities align with student interests.',
-      timestamp: '2025-01-15 08:30:00',
-      status: 'unread'
-    }
-  ]);
+  const [signedLetters, setSignedLetters] = useState<{ [key: string]: string | { fileName: string; filePath: string; uploaded: boolean } }>({});
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
+  const [systemLogs, setSystemLogs] = useState<any[]>([]);
+  const [isLoadingSystemLogs, setIsLoadingSystemLogs] = useState(false);
+  const [systemLogsFilters, setSystemLogsFilters] = useState({
+    type: '',
+    user_id: null as number | null,
+    start_date: '',
+    end_date: ''
+  });
+  const [isNotificationPopupOpen, setIsNotificationPopupOpen] = useState(false);
+  const [showFilePreviewModal, setShowFilePreviewModal] = useState(false);
+  const [selectedFilePreview, setSelectedFilePreview] = useState<{
+    roleName: string;
+    fileName: string;
+    eventTitle: string;
+    requester: string;
+    recipient: string;
+    authorityLetter?: any;
+  } | null>(null);
+  const [authorityLetters, setAuthorityLetters] = useState<any[]>([]);
+  const [isLoadingAuthorityLetters, setIsLoadingAuthorityLetters] = useState(false);
 
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      name: 'Roy',
-      email: 'superadmin@university.edu',
-      role: 'super-admin',
-      status: 'active',
-      joinDate: '2025-01-01'
-    },
-    {
-      id: '2',
-      name: 'Shalini Weerathunga',
-      email: 'shalini@university.edu',
-      role: 'student',
-      status: 'active',
-      joinDate: '2025-02-17'
-    },
-    {
-      id: '3',
-      name: 'Prof. K.M.D.S. Perera',
-      email: 'perera@university.edu',
-      role: 'faculty',
-      status: 'active',
-      joinDate: '2025-03-15'
-    },
-    {
-      id: '4',
-      name: 'Nishantha Nanayakara',
-      email: 'nishantha@university.edu',
-      role: 'student',
-      status: 'inactive',
-      joinDate: '2025-06-01'
-    }
-  ]);
 
-  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([
-    // Venue Booking Requests
-    {
-      id: '1',
-      type: 'booking',
-      title: 'Research Conference 2025',
-      requester: 'Chamali Kumari',
-      requestedBy: 'chamali@university.edu',
-      venue: 'Main Lecture Theater-MLT',
-      date: '2025-05-20',
-      details: 'Annual research conference with 200 participants',
-      status: 'pending'
-    },
-    {
-      id: '2',
-      type: 'booking',
-      title: 'Tech Talk 2025',
-      requester: 'Diluksha Perera',
-      requestedBy: 'diluksha@university.edu',
-      venue: 'Technology Lecture Theater',
-      date: '2025-07-15',
-      details: 'Technology seminar with 150 participants',
-      status: 'pending'
-    },
-    {
-      id: '3',
-      type: 'booking',
-      title: 'Alumni Meetup',
-      requester: 'Suresh Kumar',
-      requestedBy: 'suresh@university.edu',
-      venue: 'E Block Main Auditorium',
-      date: '2025-08-10',
-      details: 'Annual alumni gathering with 300 participants',
-      status: 'pending'
-    },
-    // Event Planning Requests
-    {
-      id: '4',
-      type: 'event-plan',
-      title: 'Social Night',
-      requester: 'Student Union',
-      requestedBy: 'SU@university.edu',
-      venue: 'Open Ground',
-      date: '2025-06-20',
-      details: 'Annual social night event with 1000 participants',
-      status: 'pending',
-      approvalLetters: {
-        vc: 'vc_approval_letter.pdf',
-        admin: 'admin_approval_letter.pdf',
-        warden: 'warden_approval_letter.pdf',
-        studentUnion: 'su_approval_letter.pdf'
-      }
-    },
-    {
-      id: '5',
-      type: 'event-plan',
-      title: 'Cultural Festival',
-      requester: 'Cultural Society',
-      requestedBy: 'cultural@university.edu',
-      venue: 'Open Ground',
-      date: '2025-04-15',
-      details: 'Cultural event with stage performances and food stalls',
-      status: 'pending',
-      approvalLetters: {
-        vc: 'vc_approval_letter.pdf',
-        admin: 'admin_approval_letter.pdf',
-        warden: 'warden_approval_letter.pdf',
-        studentUnion: 'su_approval_letter.pdf'
-      }
-    },
-    {
-      id: '6',
-      type: 'event-plan',
-      title: 'Sports Fiesta',
-      requester: 'Sports Club',
-      requestedBy: 'sports@university.edu',
-      venue: 'Sports Complex',
-      date: '2025-09-05',
-      details: 'Annual sports competition with 500 participants',
-      status: 'pending',
-      approvalLetters: {
-        vc: 'vc_approval_letter.pdf',
-        admin: 'admin_approval_letter.pdf',
-        warden: 'warden_approval_letter.pdf',
-        studentUnion: 'su_approval_letter.pdf'
-      }
-    },
-    {
-      id: '7',
-      type: 'event-plan',
-      title: 'Music Night',
-      requester: 'Music Society',
-      requestedBy: 'music@university.edu',
-      venue: 'Open Air Theater',
-      date: '2025-10-12',
-      details: 'Live music performance with 800 participants',
-      status: 'pending',
-      approvalLetters: {
-        vc: 'vc_approval_letter.pdf',
-        admin: 'admin_approval_letter.pdf',
-        warden: 'warden_approval_letter.pdf',
-        studentUnion: 'su_approval_letter.pdf'
-      }
-    }
-  ]);
-
-  const systemLogs = [
-    {
-      id: '1',
-      timestamp: '2025-05-20 10:30:00',
-      user: 'Chamali Kumari',
-      action: 'Booking Created',
-      target: 'Research Conference 2025',
-      details: 'Created new booking for Main Lecture Theater-MLT'
-    },
-    {
-      id: '2',
-      timestamp: '2025-06-01 09:15:00',
-      user: 'Admin',
-      action: 'User Status Changed',
-      target: 'Nishantha Nanayakara',
-      details: 'Changed user status from active to inactive'
-    },
-    {
-      id: '3',
-      timestamp: '2024-01-14 16:45:00',
-      user: 'Prof.K.M.D.S. Perera',
-      action: 'Event Plan Submitted',
-      target: 'InnoveX Seminar',
-      details: 'Submitted event plan for review'
-    }
-  ];
 
   const [newUser, setNewUser] = useState({
     name: '',
@@ -317,10 +152,205 @@ const AdminTools: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    if (tab === 'approvals' || tab === 'users' || tab === 'logs') {
-      setActiveTab(tab as 'users' | 'approvals' | 'logs');
+    if (tab === 'approvals' || tab === 'users' || tab === 'logs' || tab === 'notifications') {
+      setActiveTab(tab as 'users' | 'approvals' | 'logs' | 'notifications');
     }
+    
+    // Fetch data when component mounts
+    fetchAdminData();
   }, [location.search]);
+
+  // Periodically refresh data to get real-time updates from Service Provider
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchAdminData();
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch system logs when filters change
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      fetchSystemLogs();
+    }
+  }, [systemLogsFilters, activeTab]);
+
+  const fetchSystemLogs = async () => {
+    try {
+      setIsLoadingSystemLogs(true);
+      const params: any = { limit: 100 };
+      
+      if (systemLogsFilters.type) params.type = systemLogsFilters.type;
+      if (systemLogsFilters.user_id) params.user_id = systemLogsFilters.user_id;
+      if (systemLogsFilters.start_date) params.start_date = systemLogsFilters.start_date;
+      if (systemLogsFilters.end_date) params.end_date = systemLogsFilters.end_date;
+      
+      const response = await apiService.getSystemLogs(params);
+      
+      if (response.success) {
+        setSystemLogs(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching system logs:', error);
+    } finally {
+      setIsLoadingSystemLogs(false);
+    }
+  };
+
+  const fetchAdminData = async () => {
+    try {
+      // Fetch notifications
+      const notificationsResponse = await apiService.getNotifications({
+        limit: 50
+      });
+      
+      if (notificationsResponse.success) {
+        setNotifications(notificationsResponse.data || []);
+      }
+
+      // Fetch users
+      const usersResponse = await apiService.getUsers();
+      if (usersResponse.success) {
+        setUsers(usersResponse.data || []);
+      }
+
+      // Fetch system logs
+      await fetchSystemLogs();
+      
+      // Fetch pending bookings as pending approvals
+      const pendingBookingsResponse = await apiService.getBookings({
+        status: 'pending'
+      });
+      
+      // Fetch pending event plans (including those forwarded to service provider)
+      const [pendingEventPlansResponse, forwardedEventPlansResponse] = await Promise.all([
+        apiService.getEventPlans({ status: 'submitted' }),
+        apiService.getEventPlans({ status: 'forwarded_to_service_provider' })
+      ]);
+      
+      let allEventPlans: any[] = [];
+      
+      if (pendingEventPlansResponse.success) {
+        allEventPlans = [...(pendingEventPlansResponse.data || [])];
+      }
+      
+      if (forwardedEventPlansResponse.success) {
+        allEventPlans = [...allEventPlans, ...(forwardedEventPlansResponse.data || [])];
+      }
+      
+      const allPendingApprovals: PendingApproval[] = [];
+      
+      // Process bookings
+      if (pendingBookingsResponse.success) {
+        const bookings = pendingBookingsResponse.data || [];
+        const bookingApprovals = bookings.map((booking: any) => ({
+          id: booking.id.toString(),
+          type: 'booking' as const,
+          title: booking.event_title,
+          requester: booking.user_name || booking.user?.name || 'Unknown User',
+          requestedBy: booking.user_email || booking.user?.email || 'unknown@email.com',
+          venue: booking.venue_name || booking.venue?.name || 'Unknown Venue',
+          date: booking.date,
+          details: booking.description || 'No description provided',
+          status: booking.status,
+          approvalLetters: {
+            vc: 'VC_Approval_Letter.pdf',
+            warden: 'Warden_Approval_Letter.pdf',
+            serviceProvider: 'Service_Provider_Approval_Letter.pdf',
+            administration: 'Administration_Approval_Letter.pdf'
+          }
+        }));
+        allPendingApprovals.push(...bookingApprovals);
+      }
+      
+      // Process event plans and check for signed letters
+      if (allEventPlans.length > 0) {
+        for (const eventPlan of allEventPlans) {
+          // Check for signed letters from each authority
+          const signedLettersResponse = await apiService.getSignedLetters({
+            event_plan_id: eventPlan.id
+          });
+          
+          let authorityApprovals = {
+            vc: false,
+            warden: false,
+            administration: false,
+            student_union: false
+          };
+          
+          let signedLetters = {
+            vc: undefined,
+            warden: undefined,
+            administration: undefined,
+            student_union: undefined
+          };
+          
+          let serviceProviderStatus: 'pending' | 'approved' | 'rejected' | undefined = undefined;
+          
+          if (signedLettersResponse.success && signedLettersResponse.data) {
+            const letters = signedLettersResponse.data;
+            
+            // Check for each authority's approval
+            letters.forEach((letter: any) => {
+              if (letter.from_role === 'vice-chancellor' && letter.letter_type === 'approval') {
+                authorityApprovals.vc = true;
+                signedLetters.vc = letter.letter_content;
+              } else if (letter.from_role === 'warden' && letter.letter_type === 'approval') {
+                authorityApprovals.warden = true;
+                signedLetters.warden = letter.letter_content;
+              } else if (letter.from_role === 'administration' && letter.letter_type === 'approval') {
+                authorityApprovals.administration = true;
+                signedLetters.administration = letter.letter_content;
+              } else if (letter.from_role === 'student-union' && letter.letter_type === 'approval') {
+                authorityApprovals.student_union = true;
+                signedLetters.student_union = letter.letter_content;
+              } else if (letter.from_role === 'service-provider') {
+                // Check Service Provider status
+                if (letter.letter_type === 'approval') {
+                  serviceProviderStatus = 'approved';
+                } else if (letter.letter_type === 'rejection') {
+                  serviceProviderStatus = 'rejected';
+                }
+              }
+            });
+          }
+          
+          // If event plan is forwarded to service provider but no response yet, set status as pending
+          if (eventPlan.status === 'forwarded_to_service_provider' && !serviceProviderStatus) {
+            serviceProviderStatus = 'pending';
+          }
+          
+          const eventPlanApproval = {
+            id: eventPlan.id.toString(),
+            type: 'event-plan' as const,
+            title: eventPlan.title,
+            requester: eventPlan.user_name || eventPlan.user?.name || 'Unknown User',
+            requestedBy: eventPlan.user_email || eventPlan.user?.email || 'unknown@email.com',
+            venue: eventPlan.venue_name || 'TBD',
+            date: eventPlan.date,
+            details: eventPlan.remarks || eventPlan.description || 'No description provided',
+            status: eventPlan.status,
+            approvalLetters: {
+              vc: 'VC_Approval_Letter.pdf',
+              warden: 'Warden_Approval_Letter.pdf',
+              serviceProvider: 'Service_Provider_Approval_Letter.pdf',
+              administration: 'Administration_Approval_Letter.pdf'
+            },
+            authorityApprovals,
+            signedLetters,
+            serviceProviderStatus
+          };
+          
+          allPendingApprovals.push(eventPlanApproval);
+        }
+      }
+      
+      setPendingApprovals(allPendingApprovals);
+    } catch (error) {
+      console.error('Error fetching admin data:', error);
+    }
+  };
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -333,6 +363,25 @@ const AdminTools: React.FC = () => {
     const approval = pendingApprovals.find(a => a.id === approvalId);
     if (!approval) return;
 
+    // For event plans, check if this is a final approval or just status update
+    if (approval.type === 'event-plan') {
+      // Check if all authorities have approved
+      const allAuthoritiesApproved = approval.authorityApprovals ? 
+        approval.authorityApprovals.vc && 
+        approval.authorityApprovals.warden && 
+        approval.authorityApprovals.administration && 
+        approval.authorityApprovals.student_union : false;
+
+      // Check if service provider has approved
+      const serviceProviderApproved = approval.serviceProviderStatus === 'approved';
+
+      if (action === 'approve' && (!allAuthoritiesApproved || !serviceProviderApproved)) {
+        // This is not a final approval - show error
+        toast.error('Cannot approve event plan. All authorities and service provider must approve first.');
+        return;
+      }
+    }
+
     if (action === 'reject') {
       setSelectedRejectionApproval(approval);
       setRejectionEmail(approval.requestedBy);
@@ -344,27 +393,49 @@ const AdminTools: React.FC = () => {
     }
   };
 
-  const handleRejectWithComment = () => {
+  const handleRejectWithComment = async () => {
     if (!rejectionComment.trim()) {
       alert('Please provide a rejection comment.');
       return;
     }
 
     if (selectedRejectionApproval) {
-      // Update the approval status
-      setPendingApprovals(pendingApprovals.map(approval => 
-        approval.id === selectedRejectionApproval.id 
-          ? { ...approval, status: 'rejected' }
-          : approval
-      ));
+      try {
+        let response;
+        
+        if (selectedRejectionApproval.type === 'event-plan') {
+          // Call the API to reject the event plan
+          response = await apiService.rejectEventPlan(parseInt(selectedRejectionApproval.id), {
+            comment: rejectionComment
+          });
+        } else {
+          // Call the API to reject the booking
+          response = await apiService.rejectBooking(parseInt(selectedRejectionApproval.id));
+        }
+        
+        if (response.success) {
+          // Update the approval status locally
+          setPendingApprovals(pendingApprovals.map(approval => 
+            approval.id === selectedRejectionApproval.id 
+              ? { ...approval, status: 'rejected' }
+              : approval
+          ));
 
-      // Simulate sending email notification
-      console.log(`Rejection email sent to: ${rejectionEmail}`);
-      console.log(`Rejection comment: ${rejectionComment}`);
-      console.log(`Request details: ${selectedRejectionApproval.title}`);
+          // Show success message
+          const message = selectedRejectionApproval.type === 'event-plan' 
+            ? 'Event plan rejected successfully. User has been notified.'
+            : 'Booking rejected successfully. User has been notified.';
+          alert(message);
 
-      // Show success message
-      alert(`Rejection notification sent to ${rejectionEmail}`);
+          // Refresh the data
+          fetchAdminData();
+        } else {
+          alert(`Failed to reject ${selectedRejectionApproval.type === 'event-plan' ? 'event plan' : 'booking'}: ${response.message}`);
+        }
+      } catch (error) {
+        console.error('Error rejecting request:', error);
+        alert(`Failed to reject ${selectedRejectionApproval.type === 'event-plan' ? 'event plan' : 'booking'}. Please try again.`);
+      }
 
       // Reset modal state
       setShowRejectModal(false);
@@ -374,30 +445,57 @@ const AdminTools: React.FC = () => {
     }
   };
 
-  const handleApproveWithComment = () => {
+  const handleApproveWithComment = async () => {
     if (selectedApproveApproval) {
-      // Update the approval status
-      setPendingApprovals(pendingApprovals.map(approval => 
-        approval.id === selectedApproveApproval.id 
-          ? { ...approval, status: 'approved' }
-          : approval
-      ));
+      try {
+        let response;
+        
+        if (selectedApproveApproval.type === 'event-plan') {
+          // Check if all authorities have approved
+          const authorityApprovals = selectedApproveApproval.authorityApprovals;
+          if (!authorityApprovals || !(authorityApprovals.vc && authorityApprovals.warden && authorityApprovals.administration && authorityApprovals.student_union)) {
+            const missingAuthorities = [];
+            if (!authorityApprovals?.vc) missingAuthorities.push('Vice Chancellor');
+            if (!authorityApprovals?.warden) missingAuthorities.push('Warden');
+            if (!authorityApprovals?.administration) missingAuthorities.push('Administration');
+            if (!authorityApprovals?.student_union) missingAuthorities.push('Student Union');
+            
+            alert(`Cannot approve event plan. Missing approvals from: ${missingAuthorities.join(', ')}`);
+            return;
+          }
+          
+          // Call the API to approve the event plan
+          response = await apiService.approveEventPlan(parseInt(selectedApproveApproval.id), {
+            comment: approvalComment
+          });
+        } else {
+          // Call the API to approve the booking
+          response = await apiService.approveBooking(parseInt(selectedApproveApproval.id));
+        }
+        
+        if (response.success) {
+          // Update the approval status locally
+          setPendingApprovals(pendingApprovals.map(approval => 
+            approval.id === selectedApproveApproval.id 
+              ? { ...approval, status: 'approved' }
+              : approval
+          ));
 
-      // Simulate sending email notification
-      console.log(`Approval email sent to: ${approvalEmail}`);
-      console.log(`Approval comment: ${approvalComment}`);
-      console.log(`Request details: ${selectedApproveApproval.title}`);
-      
-      if (selectedApproveApproval.type === 'event-plan') {
-        console.log(`Event planning approval for: ${selectedApproveApproval.title}`);
-        console.log(`Approval letters: ${selectedApproveApproval.approvalLetters ? Object.keys(selectedApproveApproval.approvalLetters).join(', ') : 'None'}`);
+          // Show success message
+          const message = selectedApproveApproval.type === 'event-plan' 
+            ? 'Event planning approved successfully. User has been notified.'
+            : 'Booking approved successfully. User has been notified.';
+          alert(message);
+
+          // Refresh the data
+          fetchAdminData();
+        } else {
+          alert(`Failed to approve ${selectedApproveApproval.type === 'event-plan' ? 'event plan' : 'booking'}: ${response.message}`);
+        }
+      } catch (error) {
+        console.error('Error approving request:', error);
+        alert(`Failed to approve ${selectedApproveApproval.type === 'event-plan' ? 'event plan' : 'booking'}. Please try again.`);
       }
-
-      // Show success message
-      const message = selectedApproveApproval.type === 'event-plan' 
-        ? `Event planning approval notification sent to ${approvalEmail}`
-        : `Approval notification sent to ${approvalEmail}`;
-      alert(message);
 
       // Reset modal state
       setShowApproveModal(false);
@@ -407,9 +505,28 @@ const AdminTools: React.FC = () => {
     }
   };
 
-  const handleViewDetails = (approval: PendingApproval) => {
+  const handleViewDetails = async (approval: PendingApproval) => {
     setSelectedViewApproval(approval);
     setShowViewDetailsModal(true);
+    
+    // Fetch authority signed letters for this event plan
+    if (approval.type === 'event-plan') {
+      try {
+        setIsLoadingAuthorityLetters(true);
+        const response = await apiService.getAuthorityLetters(parseInt(approval.id));
+        if (response.success) {
+          setAuthorityLetters(response.data || []);
+        } else {
+          console.error('Failed to fetch authority letters:', response.message);
+          setAuthorityLetters([]);
+        }
+      } catch (error) {
+        console.error('Error fetching authority letters:', error);
+        setAuthorityLetters([]);
+      } finally {
+        setIsLoadingAuthorityLetters(false);
+      }
+    }
   };
 
   const handleForwardLetter = (letterType: string) => {
@@ -422,9 +539,9 @@ const AdminTools: React.FC = () => {
       // Simulate forwarding to respective dashboard
       const dashboardMap: {[key: string]: string} = {
         vc: 'Vice Chancellor',
-        admin: 'University Administration',
         warden: 'Warden',
-        studentUnion: 'Student Union'
+        serviceProvider: 'Service Provider',
+        administration: 'University Administration'
       };
       
       console.log(`Letter forwarded to ${dashboardMap[letterType]} dashboard`);
@@ -432,58 +549,337 @@ const AdminTools: React.FC = () => {
     }
   };
 
-  const handleUploadSignedLetter = (letterType: string) => {
+  const handleUploadSignedLetter = async (letterType: string) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.pdf,.doc,.docx';
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file && selectedViewApproval) {
-        setSignedLetters(prev => ({
-          ...prev,
-          [`${selectedViewApproval.id}-${letterType}`]: file.name
-        }));
-        alert(`Signed letter uploaded for ${letterType.toUpperCase()}`);
+        try {
+          console.log('🚀 Starting upload for:', letterType, 'File:', file.name);
+          
+          // Map letterType to fromRole for the backend
+          const roleMapping: { [key: string]: string } = {
+            'vc': 'vice-chancellor',
+            'warden': 'warden',
+            'serviceProvider': 'service-provider',
+            'administration': 'administration'
+          };
+          
+          const fromRole = roleMapping[letterType];
+          if (!fromRole) {
+            toast.error('Invalid letter type');
+            return;
+          }
+
+          console.log('📤 Calling API with:', {
+            eventPlanId: selectedViewApproval.id,
+            letterType: 'approval',
+            fromRole: fromRole,
+            fileName: file.name
+          });
+
+          // Upload the file to the backend
+          const response = await apiService.uploadSignedLetter(
+            parseInt(selectedViewApproval.id),
+            'approval',
+            fromRole,
+            file
+          );
+
+          console.log('📥 API Response:', response);
+
+          if (response.success) {
+            // Update the frontend state with the uploaded file info
+            setSignedLetters(prev => ({
+              ...prev,
+              [`${selectedViewApproval.id}-${letterType}`]: {
+                fileName: file.name,
+                filePath: response.file_path,
+                uploaded: true
+              }
+            }));
+            toast.success(`Signed letter uploaded for ${letterType.toUpperCase()}`);
+            console.log('✅ Upload successful, state updated');
+          } else {
+            toast.error(`Failed to upload: ${response.message}`);
+            console.error('❌ Upload failed:', response.message);
+          }
+        } catch (error) {
+          console.error('💥 Upload error:', error);
+          toast.error('Failed to upload signed letter');
+        }
       }
     };
     input.click();
   };
 
-  const handleSendToUser = () => {
+  const handleRemoveSignedLetter = (letterType: string) => {
     if (selectedViewApproval) {
-      const uploadedCount = Object.keys(signedLetters).filter(key => 
-        key.startsWith(selectedViewApproval.id)
-      ).length;
+      setSignedLetters(prev => {
+        const newLetters = { ...prev };
+        delete newLetters[`${selectedViewApproval.id}-${letterType}`];
+        return newLetters;
+      });
+      toast.success(`Signed letter removed for ${letterType.toUpperCase()}`);
+    }
+  };
+
+  // Helper function to get display text for signed letters
+  const getSignedLetterDisplayText = (letterType: string): string => {
+    const key = `${selectedViewApproval?.id}-${letterType}`;
+    const letter = signedLetters[key];
+    
+    if (typeof letter === 'string') {
+      return letter; // Legacy format
+    } else if (letter && typeof letter === 'object' && 'fileName' in letter) {
+      return letter.fileName; // New format
+    }
+    return '';
+  };
+
+  // Helper function to check if a letter is uploaded
+  const isLetterUploaded = (letterType: string): boolean => {
+    const key = `${selectedViewApproval?.id}-${letterType}`;
+    const letter = signedLetters[key];
+    
+    if (typeof letter === 'string') {
+      return letter.length > 0; // Legacy format
+    } else if (letter && typeof letter === 'object' && 'uploaded' in letter) {
+      return letter.uploaded; // New format
+    }
+    return false;
+  };
+
+  const handleViewAuthorityLetter = (role: string) => {
+    if (selectedViewApproval) {
+      // Find the authority letter for this role
+      const authorityLetter = authorityLetters.find(letter => letter.role === role);
       
-      if (uploadedCount === 4) {
-        alert(`All signed letters sent to ${selectedViewApproval.requestedBy}`);
-        console.log(`Signed letters sent to user: ${selectedViewApproval.requestedBy}`);
+      if (authorityLetter) {
+        // Set the file preview data and show modal
+        setSelectedFilePreview({
+          roleName: authorityLetter.role_display_name,
+          fileName: `${authorityLetter.role_display_name} Approval Letter`,
+          eventTitle: selectedViewApproval.title,
+          requester: selectedViewApproval.requester,
+          recipient: selectedViewApproval.requestedBy,
+          authorityLetter: authorityLetter
+        });
+        setShowFilePreviewModal(true);
+        
       } else {
-        alert(`Please upload all 4 signed letters before sending to user`);
+        const roleDisplayNames = {
+          'vice-chancellor': 'Vice Chancellor',
+          'warden': 'Warden', 
+          'administration': 'Administration',
+          'student-union': 'Student Union'
+        };
+        toast.error(`No ${roleDisplayNames[role as keyof typeof roleDisplayNames] || role} letter found`);
+      }
+    } else {
+      toast.error('No event plan selected');
+    }
+  };
+
+  // Function to validate and clean base64 PDF data
+  const getValidPdfDataUrl = (base64Content: string): string | null => {
+    try {
+      // Check if it's already a valid data URL
+      if (base64Content.startsWith('data:application/pdf;base64,')) {
+        return base64Content;
+      }
+      
+      // If it's just base64 content, convert to data URL
+      if (base64Content && !base64Content.includes('data:')) {
+        return `data:application/pdf;base64,${base64Content}`;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error processing PDF data:', error);
+      return null;
+    }
+  };
+
+
+
+  const handleSendToUser = async () => {
+    if (selectedViewApproval) {
+      try {
+        console.log('🚀 Starting send process for event plan:', selectedViewApproval.id);
+        
+        // Check if all 4 signed letters are uploaded
+        const uploadedCount = [isLetterUploaded('vc'), isLetterUploaded('warden'), isLetterUploaded('serviceProvider'), isLetterUploaded('administration')].filter(Boolean).length;
+        
+        console.log('📊 Upload count check:', {
+          vc: isLetterUploaded('vc'),
+          warden: isLetterUploaded('warden'),
+          serviceProvider: isLetterUploaded('serviceProvider'),
+          administration: isLetterUploaded('administration'),
+          total: uploadedCount
+        });
+        
+        if (uploadedCount === 4) {
+          console.log('✅ All letters uploaded, calling API...');
+          
+          // Call the backend API to send signed letters to user
+          const response = await apiService.sendSignedLettersToUser(parseInt(selectedViewApproval.id), {
+            userEmail: selectedViewApproval.requestedBy,
+            eventTitle: selectedViewApproval.title,
+            requesterName: selectedViewApproval.requester
+          });
+          
+          console.log('📥 Send API Response:', response);
+          
+          if (response.success) {
+            // Get the uploaded signed letters for display
+            const vcLetter = signedLetters[`${selectedViewApproval.id}-vc`];
+            const wardenLetter = signedLetters[`${selectedViewApproval.id}-warden`];
+            const serviceProviderLetter = signedLetters[`${selectedViewApproval.id}-serviceProvider`];
+            const administrationLetter = signedLetters[`${selectedViewApproval.id}-administration`];
+            
+            // Create notification for super-admin
+            const newNotification: Notification = {
+              id: Date.now(),
+              title: 'Signed Letters Sent to User',
+              message: `All 4 signed letters for event plan '${selectedViewApproval.title}' have been sent to ${selectedViewApproval.requestedBy}`,
+              type: 'letter_sent',
+              status: 'unread',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            
+            setNotifications(prev => [newNotification, ...prev]);
+            
+            toast.success(`All signed letters have been sent to ${selectedViewApproval.requestedBy}`);
+        console.log(`Signed letters sent to user: ${selectedViewApproval.requestedBy}`);
+            
+            // Show success message with details
+            alert(`✅ Signed Letters Successfully Sent!\n\nEvent: ${selectedViewApproval.title}\nRecipient: ${selectedViewApproval.requestedBy}\n\nLetters Sent:\n• VC Approval: ${vcLetter}\n• Warden Approval: ${wardenLetter}\n• Service Provider Approval: ${serviceProviderLetter}\n• Administration Approval: ${administrationLetter}\n\nEmail has been sent to the user with all signed letters attached.\n\nEmail Details:\n• Subject: Event Plan Approved - Signed Letters: ${selectedViewApproval.title}\n• Recipient: ${selectedViewApproval.requestedBy}\n• Status: ${response.email_details?.status || 'Sent'}\n• Delivery: ${response.email_details?.delivery_confirmation || 'Confirmed'}`);
+      } else {
+            toast.error(response.message || 'Failed to send signed letters to user');
+          }
+        } else {
+          toast.error(`Please upload all 4 signed letters (VC, Warden, Service Provider, Administration) before sending to user`);
+        }
+      } catch (error) {
+        console.error('Error sending signed letters to user:', error);
+        toast.error('Error sending signed letters to user. Please try again.');
       }
     }
   };
 
-  const handleForwardToServiceProvider = () => {
+  const handleForwardToServiceProvider = async () => {
     if (selectedViewApproval) {
-      // Simulate forwarding event planning request to Service Provider Dashboard
-      console.log(`Event planning request forwarded to Service Provider Dashboard`);
-      console.log(`Event: ${selectedViewApproval.title}`);
-      console.log(`Services: ${selectedViewApproval.approvalLetters ? Object.keys(selectedViewApproval.approvalLetters).join(', ') : 'N/A'}`);
-      alert(`Event planning request forwarded to Service Provider Dashboard for service approval`);
+      try {
+        // Call the backend API to forward to service provider
+        const response = await apiService.forwardToServiceProvider(parseInt(selectedViewApproval.id));
+        
+        if (response.success) {
+          // Update the service provider status to pending
+          setPendingApprovals(prev => 
+            prev.map(approval => 
+              approval.id === selectedViewApproval.id 
+                ? { ...approval, serviceProviderStatus: 'pending' }
+                : approval
+            )
+          );
+          
+          // Update the selected approval
+          setSelectedViewApproval(prev => 
+            prev ? { ...prev, serviceProviderStatus: 'pending' } : null
+          );
+          
+          // Log the action
+          console.log(`Event planning request forwarded to Service Provider Dashboard`);
+          console.log(`Event: ${selectedViewApproval.title}`);
+          console.log(`Services: ${selectedViewApproval.approvalLetters ? Object.keys(selectedViewApproval.approvalLetters).join(', ') : 'N/A'}`);
+          
+          // Create notification for super-admin
+          const newNotification: Notification = {
+            id: Date.now(),
+            title: 'Event Plan Forwarded to Service Provider',
+            message: `Event plan '${selectedViewApproval.title}' has been forwarded to Service Provider Dashboard for service approval.`,
+            type: 'service_provider_notified',
+            status: 'unread',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          
+          setNotifications(prev => [newNotification, ...prev]);
+          
+          toast.success(`Event planning request forwarded to Service Provider Dashboard for service approval`);
+        } else {
+          toast.error(response.message || 'Failed to forward event plan to Service Provider');
+        }
+      } catch (error) {
+        console.error('Error forwarding to service provider:', error);
+        toast.error('Error forwarding event plan to Service Provider. Please try again.');
+      }
     }
   };
 
+  // Handle service provider response (called when service provider approves/rejects)
+  // This function would normally be called by your backend when service provider responds
+  const handleServiceProviderResponse = async (eventPlanId: string, response: 'approved' | 'rejected', comment?: string) => {
+    try {
+      // Update the service provider status locally
+      setPendingApprovals(prev => 
+        prev.map(approval => 
+          approval.id === eventPlanId 
+            ? { ...approval, serviceProviderStatus: response }
+            : approval
+        )
+      );
+      
+      // Update the selected approval if it's the same one
+      if (selectedViewApproval && selectedViewApproval.id === eventPlanId) {
+        setSelectedViewApproval(prev => 
+          prev ? { ...prev, serviceProviderStatus: response } : null
+        );
+      }
+      
+      // Create notification for super-admin about service provider decision
+      const eventPlan = pendingApprovals.find(a => a.id === eventPlanId);
+      const newNotification: Notification = {
+        id: Date.now(),
+        title: `Service Provider ${response === 'approved' ? 'Approved' : 'Rejected'} Event Plan`,
+        message: `Event plan '${eventPlan?.title || 'Unknown'}' has been ${response} by Service Provider. ${comment ? `Comment: ${comment}` : ''}`,
+        type: response === 'approved' ? 'service_provider_approved' : 'service_provider_rejected',
+        status: 'unread',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      setNotifications(prev => [newNotification, ...prev]);
+      
+      toast.success(`Service Provider has ${response} the event plan. Check notifications for details.`);
+      
+      // Refresh data to get latest status
+      fetchAdminData();
+    } catch (error) {
+      console.error('Error handling service provider response:', error);
+      toast.error('Error updating service provider status. Please refresh the page.');
+    }
+  };
+
+  // For testing purposes - simulate service provider response
+  // In real implementation, this would come from your backend when service provider acts
+  const simulateServiceProviderResponse = (eventPlanId: string, response: 'approved' | 'rejected') => {
+    handleServiceProviderResponse(eventPlanId, response, `Simulated ${response} response for testing`);
+  };
+
   const handleServiceProviderNotification = (eventName: string, serviceProvider: string, comment: string, type: 'approval' | 'rejection') => {
-    const newNotification = {
+    const newNotification: Notification = {
       id: Date.now(),
-      type,
-      source: 'service-provider',
-      authority: serviceProvider,
-      eventName,
-      comment,
-      timestamp: new Date().toLocaleString(),
-      status: 'unread' as const
+      title: `${type === 'approval' ? 'Approval' : 'Rejection'} from ${serviceProvider}`,
+      message: `${eventName}: ${comment}`,
+      type: type === 'approval' ? 'booking_approved' : 'booking_rejected',
+      status: 'unread',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
     
     setNotifications(prev => [newNotification, ...prev]);
@@ -491,29 +887,50 @@ const AdminTools: React.FC = () => {
   };
 
   const handleAuthorityNotification = (eventName: string, authority: string, comment: string, type: 'approval' | 'rejection') => {
-    const newNotification = {
+    const newNotification: Notification = {
       id: Date.now(),
-      type,
-      source: 'authority',
-      authority,
-      eventName,
-      comment,
-      timestamp: new Date().toLocaleString(),
-      status: 'unread' as const
+      title: `${type === 'approval' ? 'Approval' : 'Rejection'} from ${authority}`,
+      message: `${eventName}: ${comment}`,
+      type: type === 'approval' ? 'booking_approved' : 'booking_rejected',
+      status: 'unread',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
     
     setNotifications(prev => [newNotification, ...prev]);
     console.log(`Authority notification received: ${type} for ${eventName} from ${authority}`);
   };
 
-  const markNotificationAsRead = (notificationId: number) => {
+  const handleSendLetters = async (eventPlanId: string) => {
+    try {
+      const response = await apiService.sendEventPlanLetters(parseInt(eventPlanId));
+      
+      if (response.success) {
+        alert('Letters sent successfully to all authorities!');
+        // Refresh the data
+        fetchAdminData();
+      } else {
+        alert('Failed to send letters. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error sending letters:', error);
+      alert('Error sending letters. Please try again.');
+    }
+  };
+
+  const markNotificationAsRead = async (notificationId: number) => {
+    try {
+      await apiService.markNotificationAsRead(notificationId);
     setNotifications(prev => 
       prev.map(notification => 
         notification.id === notificationId 
-          ? { ...notification, status: 'read' }
+            ? { ...notification, status: 'read' }
           : notification
       )
     );
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
   const handleUserSubmit = (e: React.FormEvent) => {
@@ -605,6 +1022,54 @@ const AdminTools: React.FC = () => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  // Custom notification bell component for admin tools
+  const AdminToolsNotificationBell = () => {
+    const [notificationCount, setNotificationCount] = useState(0);
+    const [isLoadingBell, setIsLoadingBell] = useState(false);
+
+    useEffect(() => {
+      fetchNotificationCount();
+    }, []);
+
+    const fetchNotificationCount = async () => {
+      setIsLoadingBell(true);
+      try {
+        const response = await apiService.getNotifications({
+          status: 'unread'
+        });
+        
+        if (response.success) {
+          const count = response.data?.length || 0;
+          console.log('Setting notification count:', count);
+          setNotificationCount(count);
+        }
+      } catch (error) {
+        console.error('Error fetching notification count:', error);
+      } finally {
+        setIsLoadingBell(false);
+      }
+    };
+
+    return (
+      <div className="relative">
+        <button 
+          onClick={() => setIsNotificationPopupOpen(true)}
+          className="p-2 text-white hover:text-blue-200 hover:bg-black rounded-lg relative"
+        >
+          <Bell size={20} />
+          {notificationCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center font-bold shadow-lg z-10">
+              {notificationCount > 99 ? '99+' : notificationCount}
+            </span>
+          )}
+          {isLoadingBell && (
+            <div className="absolute -top-1 -right-1 w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          )}
+        </button>
+      </div>
+    );
   };
 
   const renderUsersTab = () => (
@@ -776,72 +1241,160 @@ const AdminTools: React.FC = () => {
       
       <div className="space-y-4">
         {pendingApprovals
-          .filter(approval => 
-            approval.status === 'pending' && 
-            ((approvalQueueTab === 'venue-booking' && approval.type === 'booking') ||
-             (approvalQueueTab === 'event-planning' && approval.type === 'event-plan'))
-          )
-          .map((approval) => (
-          <div key={approval.id} className="bg-black/30 backdrop-blur-sm rounded-2xl shadow-xl border border-white/10 p-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex-1">
-                <div className="flex items-center space-x-3 mb-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${approval.type === 'booking' ? 'bg-blue-900/60 text-blue-200 border-blue-500/30' : 'bg-purple-900/60 text-purple-200 border-purple-500/30'}`}>{approval.type === 'booking' ? 'Booking Request' : 'Event Plan'}</span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${approval.status === 'pending' ? 'bg-yellow-900/60 text-yellow-200 border-yellow-500/30' : approval.status === 'approved' ? 'bg-green-900/60 text-green-200 border-green-500/30' : 'bg-red-900/60 text-red-200 border-red-500/30'}`}>{approval.status.charAt(0).toUpperCase() + approval.status.slice(1)}</span>
+          .filter(approval => {
+            const isCorrectType = (approvalQueueTab === 'venue-booking' && approval.type === 'booking') ||
+                                 (approvalQueueTab === 'event-planning' && approval.type === 'event-plan');
+            
+            // For bookings, check for 'pending' status
+            // For event plans, show all statuses (submitted, pending service provider, etc.)
+            const isCorrectStatus = approval.type === 'booking' ? 
+              approval.status === 'pending' : 
+              true; // Show all event plans regardless of status
+            
+            return isCorrectType && isCorrectStatus;
+          })
+          .map((approval) => {
+            // Check if all authorities have approved for event plans
+            const allAuthoritiesApproved = approval.type === 'event-plan' && approval.authorityApprovals ? 
+              approval.authorityApprovals.vc && 
+              approval.authorityApprovals.warden && 
+              approval.authorityApprovals.administration && 
+              approval.authorityApprovals.student_union : true;
+
+            return (
+              <div key={approval.id} className="bg-black/30 backdrop-blur-sm rounded-2xl shadow-xl border border-white/10 p-6">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${approval.type === 'booking' ? 'bg-blue-900/60 text-blue-200 border-blue-500/30' : 'bg-purple-900/60 text-purple-200 border-purple-500/30'}`}>{approval.type === 'booking' ? 'Booking Request' : 'Event Plan'}</span>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${approval.status === 'pending' ? 'bg-yellow-900/60 text-yellow-200 border-yellow-500/30' : approval.status === 'approved' ? 'bg-green-900/60 text-green-200 border-green-500/30' : 'bg-red-900/60 text-red-200 border-red-500/30'}`}>{approval.status.charAt(0).toUpperCase() + approval.status.slice(1)}</span>
+                    </div>
+                    
+                    <h3 className="text-xl font-bold text-white mb-2">{approval.title}</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-white/80 mb-3">
+                      <div><span className="font-medium">Requester:</span> {approval.requester}</div>
+                      <div><span className="font-medium">Email:</span> {approval.requestedBy}</div>
+                      <div><span className="font-medium">Venue:</span> {approval.venue}</div>
+                      <div><span className="font-medium">Date:</span> {approval.date}</div>
+                    </div>
+                    
+                    {/* Authority Approval Status for Event Plans */}
+                    {approval.type === 'event-plan' && approval.authorityApprovals && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-semibold text-white mb-2">Authority Approvals:</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${approval.authorityApprovals.vc ? 'bg-green-900/60 text-green-200' : 'bg-gray-700/60 text-gray-300'}`}>
+                            <span className={`w-2 h-2 rounded-full ${approval.authorityApprovals.vc ? 'bg-green-400' : 'bg-gray-400'}`}></span>
+                            <span className="text-xs">VC</span>
+                          </div>
+                          <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${approval.authorityApprovals.warden ? 'bg-green-900/60 text-green-200' : 'bg-gray-700/60 text-gray-300'}`}>
+                            <span className={`w-2 h-2 rounded-full ${approval.authorityApprovals.warden ? 'bg-green-400' : 'bg-gray-400'}`}></span>
+                            <span className="text-xs">Warden</span>
+                          </div>
+                          <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${approval.authorityApprovals.administration ? 'bg-green-900/60 text-green-200' : 'bg-gray-700/60 text-gray-300'}`}>
+                            <span className={`w-2 h-2 rounded-full ${approval.authorityApprovals.administration ? 'bg-green-400' : 'bg-gray-400'}`}></span>
+                            <span className="text-xs">Admin</span>
+                          </div>
+                          <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${approval.authorityApprovals.student_union ? 'bg-green-900/60 text-green-200' : 'bg-gray-700/60 text-gray-300'}`}>
+                            <span className={`w-2 h-2 rounded-full ${approval.authorityApprovals.student_union ? 'bg-green-400' : 'bg-gray-400'}`}></span>
+                            <span className="text-xs">SU</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Service Provider Status for Event Plans */}
+                    {approval.type === 'event-plan' && approval.serviceProviderStatus && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-semibold text-white mb-2">Service Provider Status:</h4>
+                                                  <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${
+                            approval.serviceProviderStatus === 'approved' ? 'bg-green-900/60 text-green-200' :
+                            approval.serviceProviderStatus === 'rejected' ? 'bg-red-900/60 text-red-200' :
+                            approval.serviceProviderStatus === 'notified' ? 'bg-blue-900/60 text-blue-200' :
+                            'bg-yellow-900/60 text-yellow-200'
+                          }`}>
+                            <span className={`w-2 h-2 rounded-full ${
+                              approval.serviceProviderStatus === 'approved' ? 'bg-green-400' :
+                              approval.serviceProviderStatus === 'rejected' ? 'bg-red-400' :
+                              approval.serviceProviderStatus === 'notified' ? 'bg-blue-400' :
+                              'bg-yellow-400'
+                            }`}></span>
+                            <span className="text-xs">
+                              Service Provider: {approval.serviceProviderStatus === 'approved' ? 'Approved' : 
+                                               approval.serviceProviderStatus === 'rejected' ? 'Rejected' : 
+                                               approval.serviceProviderStatus === 'notified' ? 'Notified' :
+                                               'Pending'}
+                            </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <p className="text-white/90 mb-4">{approval.details}</p>
+                  </div>
+                  
+                  <div className="flex space-x-3">
+                    {/* {approval.type === 'event-plan' && (
+                      <button
+                        onClick={() => handleSendLetters(approval.id)}
+                        className="bg-purple-900/80 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center hover:bg-purple-800/80 border border-purple-500/30"
+                      >
+                        <Download size={16} className="mr-2" />
+                        Send Letters
+                      </button>
+                    )} */}
+                    <button
+                      onClick={() => handleApproval(approval.id, 'approve')}
+                      disabled={approval.type === 'event-plan' && !allAuthoritiesApproved}
+                      className={`px-4 py-2 rounded-xl font-medium transition-colors flex items-center border ${
+                        approval.type === 'event-plan' && !allAuthoritiesApproved
+                          ? 'bg-gray-600/60 text-gray-400 border-gray-500/30 cursor-not-allowed'
+                          : 'bg-green-900/80 backdrop-blur-sm text-white hover:bg-green-800/80 border-green-500/30'
+                      }`}
+                    >
+                      <CheckCircle size={16} className="mr-2" />
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleApproval(approval.id, 'reject')}
+                      className="bg-red-900/80 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center hover:bg-red-800/80 border border-red-500/30"
+                    >
+                      <X size={16} className="mr-2" />
+                      Reject
+                    </button>
+                    <button 
+                      onClick={() => handleViewDetails(approval)}
+                      className="bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-medium flex items-center hover:bg-white/20 transition-colors border border-white/20"
+                    >
+                      <Eye size={16} className="mr-2" />
+                      View Details
+                    </button>
+                  </div>
                 </div>
-                
-                <h3 className="text-xl font-bold text-white mb-2">{approval.title}</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-white/80 mb-3">
-                  <div><span className="font-medium">Requester:</span> {approval.requester}</div>
-                  <div><span className="font-medium">Email:</span> {approval.requestedBy}</div>
-                  <div><span className="font-medium">Venue:</span> {approval.venue}</div>
-                  <div><span className="font-medium">Date:</span> {approval.date}</div>
-                </div>
-                
-                <p className="text-white/90 mb-4">{approval.details}</p>
               </div>
-              
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => handleApproval(approval.id, 'approve')}
-                  className="bg-green-900/80 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center hover:bg-green-800/80 border border-green-500/30"
-                >
-                  <CheckCircle size={16} className="mr-2" />
-                  Approve
-                </button>
-                <button
-                  onClick={() => handleApproval(approval.id, 'reject')}
-                  className="bg-red-900/80 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center hover:bg-red-800/80 border border-red-500/30"
-                >
-                  <X size={16} className="mr-2" />
-                  Reject
-                </button>
-                <button 
-                  onClick={() => handleViewDetails(approval)}
-                  className="bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-medium flex items-center hover:bg-white/20 transition-colors border border-white/20"
-                >
-                  <Eye size={16} className="mr-2" />
-                  View Details
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+            );
+          })}
         
         {/* Show message when no pending requests */}
         {pendingApprovals
-          .filter(approval => 
-            approval.status === 'pending' && 
-            ((approvalQueueTab === 'venue-booking' && approval.type === 'booking') ||
-             (approvalQueueTab === 'event-planning' && approval.type === 'event-plan'))
-          ).length === 0 && (
+          .filter(approval => {
+            const isCorrectType = (approvalQueueTab === 'venue-booking' && approval.type === 'booking') ||
+                                 (approvalQueueTab === 'event-planning' && approval.type === 'event-plan');
+            
+            // For bookings, check for 'pending' status
+            // For event plans, show all statuses (submitted, pending service provider, etc.)
+            const isCorrectStatus = approval.type === 'booking' ? 
+              approval.status === 'pending' : 
+              true; // Show all event plans regardless of status
+            
+            return isCorrectType && isCorrectStatus;
+          }).length === 0 && (
           <div className="text-center py-12">
             <div className="text-white/60 text-lg font-medium">
-              No pending {approvalQueueTab === 'venue-booking' ? 'venue booking' : 'event planning'} requests
+              No {approvalQueueTab === 'venue-booking' ? 'pending venue booking' : 'event planning'} requests
             </div>
             <div className="text-white/40 text-sm mt-2">
-              All requests in this queue have been processed
+              {approvalQueueTab === 'venue-booking' ? 'All venue booking requests have been processed' : 'No event planning requests found'}
             </div>
           </div>
         )}
@@ -861,7 +1414,12 @@ const AdminTools: React.FC = () => {
       </div>
 
       <div className="space-y-4">
-        {notifications.length === 0 ? (
+        {isLoadingNotifications ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+            <p className="text-white/50">Loading notifications...</p>
+          </div>
+        ) : notifications.length === 0 ? (
           <div className="text-center py-8">
             <Bell className="mx-auto text-white/30" size={48} />
             <p className="text-white/50 mt-2">No notifications</p>
@@ -879,24 +1437,23 @@ const AdminTools: React.FC = () => {
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-3">
                     <div className={`w-3 h-3 rounded-full ${
-                      notification.type === 'approval' ? 'bg-green-500' : 'bg-red-500'
+                      notification.type.includes('approved') ? 'bg-green-500' : 
+                      notification.type.includes('rejected') ? 'bg-red-500' : 
+                      notification.type === 'booking_action_confirmation' ? 'bg-yellow-500' : 'bg-blue-500'
                     }`}></div>
                     <span className={`text-sm font-medium px-2 py-1 rounded-full ${
-                      notification.type === 'approval' 
+                      notification.type.includes('approved') 
                         ? 'bg-green-500/20 text-green-300' 
-                        : 'bg-red-500/20 text-red-300'
-                    }`}>
-                      {notification.type === 'approval' ? 'Approval' : 'Rejection'}
-                    </span>
-                    <span className={`text-sm font-medium px-2 py-1 rounded-full ${
-                      notification.source === 'service-provider' 
-                        ? 'bg-purple-500/20 text-purple-300' 
+                        : notification.type.includes('rejected')
+                        ? 'bg-red-500/20 text-red-300'
+                        : notification.type === 'booking_action_confirmation'
+                        ? 'bg-yellow-500/20 text-yellow-300'
                         : 'bg-blue-500/20 text-blue-300'
                     }`}>
-                      {notification.source === 'service-provider' ? 'Service Provider' : 'Authority'}
-                    </span>
-                    <span className="text-sm text-white/70">
-                      {notification.authority}
+                      {notification.type.includes('approved') ? 'Approval' : 
+                       notification.type.includes('rejected') ? 'Rejection' : 
+                       notification.type === 'booking_action_confirmation' ? 'Action Confirmation' :
+                       notification.type.replace('_', ' ').toUpperCase()}
                     </span>
                     {notification.status === 'unread' && (
                       <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1">
@@ -906,27 +1463,27 @@ const AdminTools: React.FC = () => {
                   </div>
                   
                   <h4 className="text-lg font-semibold text-white mb-2">
-                    {notification.eventName}
+                    {notification.title}
                   </h4>
                   
                   <div className="text-sm text-white/90 mb-3">
                     <p className="mb-1">
-                      <span className="font-medium">{notification.source === 'service-provider' ? 'Service Provider' : 'Authority'}:</span> {notification.authority}
+                      <span className="font-medium">Message:</span> {notification.message}
                     </p>
                     <p className="mb-1">
-                      <span className="font-medium">Event:</span> {notification.eventName}
+                      <span className="font-medium">Type:</span> {notification.type.replace('_', ' ').toUpperCase()}
                     </p>
                     <p className="mb-1">
-                      <span className="font-medium">Time:</span> {notification.timestamp}
+                      <span className="font-medium">Time:</span> {new Date(notification.created_at).toLocaleString()}
                     </p>
                   </div>
                   
                   <div className="bg-gray-800/60 rounded-lg p-4">
                     <h5 className="font-medium text-white mb-2">
-                      {notification.source === 'service-provider' ? 'Service Provider' : 'Authority'} Comment:
+                      Details:
                     </h5>
                     <p className="text-white/90 text-sm leading-relaxed">
-                      {notification.comment}
+                      {notification.message}
                     </p>
                   </div>
                 </div>
@@ -942,10 +1499,94 @@ const AdminTools: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <h2 className="text-2xl font-bold text-white">System Logs</h2>
-        <button className="mt-4 md:mt-0 bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl flex items-center hover:bg-white/20 transition-colors border border-white/20">
-          <Download size={20} className="mr-2" />
-          Export Logs
-        </button>
+        <div className="flex items-center space-x-3">
+          <button 
+            onClick={fetchSystemLogs}
+            className="mt-4 md:mt-0 bg-blue-600/80 backdrop-blur-sm text-white px-4 py-2 rounded-xl flex items-center hover:bg-blue-700/80 transition-colors border border-blue-500/30"
+          >
+            <RefreshCw size={20} className="mr-2" />
+            Refresh
+          </button>
+          <button className="mt-4 md:mt-0 bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl flex items-center hover:bg-white/20 transition-colors border border-white/20">
+            <Download size={20} className="mr-2" />
+            Export Logs
+          </button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-black/30 backdrop-blur-sm rounded-2xl shadow-xl border border-white/10 p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Filters</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-white/80 mb-2">Activity Type</label>
+            <select
+              value={systemLogsFilters.type}
+              onChange={(e) => setSystemLogsFilters(prev => ({ ...prev, type: e.target.value }))}
+              className="w-full bg-black/60 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Types</option>
+              <option value="booking">Booking</option>
+              <option value="event_plan">Event Plan</option>
+              <option value="venue">Venue</option>
+              <option value="user">User</option>
+              <option value="system">System</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-white/80 mb-2">User</label>
+            <select
+              value={systemLogsFilters.user_id || ''}
+              onChange={(e) => setSystemLogsFilters(prev => ({ 
+                ...prev, 
+                user_id: e.target.value ? parseInt(e.target.value) : null 
+              }))}
+              className="w-full bg-black/60 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Users</option>
+              {users.map(user => (
+                <option key={user.id} value={user.id}>{user.name}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-white/80 mb-2">Start Date</label>
+            <input
+              type="date"
+              value={systemLogsFilters.start_date}
+              onChange={(e) => setSystemLogsFilters(prev => ({ ...prev, start_date: e.target.value }))}
+              className="w-full bg-black/60 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-white/80 mb-2">End Date</label>
+            <input
+              type="date"
+              value={systemLogsFilters.end_date}
+              onChange={(e) => setSystemLogsFilters(prev => ({ ...prev, end_date: e.target.value }))}
+              className="w-full bg-black/60 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+        
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={() => {
+              setSystemLogsFilters({
+                type: '',
+                user_id: null,
+                start_date: '',
+                end_date: ''
+              });
+            }}
+            className="bg-gray-600/80 hover:bg-gray-700/80 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Clear Filters
+          </button>
+        </div>
       </div>
       
       <div className="bg-black/30 backdrop-blur-sm rounded-2xl shadow-xl border border-white/10 overflow-hidden">
@@ -956,24 +1597,62 @@ const AdminTools: React.FC = () => {
                 <th className="text-left py-3 px-6 font-medium text-white">Timestamp</th>
                 <th className="text-left py-3 px-6 font-medium text-white">User</th>
                 <th className="text-left py-3 px-6 font-medium text-white">Action</th>
+                <th className="text-left py-3 px-6 font-medium text-white">Type</th>
                 <th className="text-left py-3 px-6 font-medium text-white">Target</th>
                 <th className="text-left py-3 px-6 font-medium text-white">Details</th>
+                <th className="text-left py-3 px-6 font-medium text-white">IP Address</th>
               </tr>
             </thead>
             <tbody>
-              {systemLogs.map((log) => (
-                <tr key={log.id} className="border-t border-white/10 hover:bg-white/5 transition-colors">
-                  <td className="py-4 px-6 text-sm text-white/70">{log.timestamp}</td>
-                  <td className="py-4 px-6 font-medium text-white">{log.user}</td>
-                  <td className="py-4 px-6">
-                    <span className="px-2 py-1 bg-white/10 backdrop-blur-sm text-white text-xs rounded border border-white/20 hover:bg-white/20 transition-colors">
-                      {log.action}
-                    </span>
+              {isLoadingSystemLogs ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-white/70">
+                    <div className="flex items-center justify-center">
+                      <RefreshCw size={24} className="animate-spin mr-2" />
+                      Loading system logs...
+                    </div>
                   </td>
-                  <td className="py-4 px-6 text-sm text-white/70">{log.target}</td>
-                  <td className="py-4 px-6 text-sm text-white/70">{log.details}</td>
                 </tr>
-              ))}
+              ) : systemLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-white/70">
+                    No system logs found
+                  </td>
+                </tr>
+              ) : (
+                systemLogs.map((log) => (
+                  <tr key={log.id} className="border-t border-white/10 hover:bg-white/5 transition-colors">
+                    <td className="py-4 px-6 text-sm text-white/70">{log.timestamp}</td>
+                    <td className="py-4 px-6">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-white">{log.user}</span>
+                        <span className="text-xs text-white/50">{log.user_role}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="px-2 py-1 bg-white/10 backdrop-blur-sm text-white text-xs rounded border border-white/20 hover:bg-white/20 transition-colors">
+                        {log.action}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className={`px-2 py-1 text-xs rounded border ${
+                        log.type === 'system' ? 'bg-purple-900/60 text-purple-200 border-purple-500/30' :
+                        log.type === 'user' ? 'bg-blue-900/60 text-blue-200 border-blue-500/30' :
+                        log.type === 'booking' ? 'bg-green-900/60 text-green-200 border-green-500/30' :
+                        log.type === 'event_plan' ? 'bg-yellow-900/60 text-yellow-200 border-yellow-500/30' :
+                        'bg-gray-900/60 text-gray-200 border-gray-500/30'
+                      }`}>
+                        {log.type}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6 text-sm text-white/70">{log.target}</td>
+                    <td className="py-4 px-6 text-sm text-white/70 max-w-xs truncate" title={log.details}>
+                      {log.details}
+                    </td>
+                    <td className="py-4 px-6 text-xs text-white/50 font-mono">{log.ip_address}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -982,17 +1661,18 @@ const AdminTools: React.FC = () => {
   );
 
   return (
-    <Layout showSidebar={true}>
+    <Layout showSidebar={true} notificationBell={<AdminToolsNotificationBell />}>
       <div className="min-h-screen w-full flex flex-col items-stretch" style={{ backgroundColor: '#bd7880' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="space-y-8 animate-fade-in text-white">
             {/* Header */}
             <div className="text-center mb-8">
               <h1 className="text-4xl font-bold text-white">Admin Tools</h1>
               <p className="text-lg text-white/90">Manage users, approvals, and system activities</p>
+          </div>
             </div>
 
-            {/* Tabs */}
+        {/* Tabs - Full Width */}
+        <div className="w-full px-4 sm:px-6 lg:px-8">
             <div className="bg-black/30 backdrop-blur-sm rounded-2xl shadow-xl border border-white/10 p-6">
               <div className="border-b border-white/10">
                 <nav className="-mb-px flex space-x-8">
@@ -1024,9 +1704,12 @@ const AdminTools: React.FC = () => {
                 {activeTab === 'approvals' && renderApprovalsTab()}
                 {activeTab === 'notifications' && renderNotificationsTab()}
                 {activeTab === 'logs' && renderLogsTab()}
+            </div>
+          </div>
               </div>
             </div>
 
+      {/* Modals */}
             {/* User Form Modal */}
             {showUserForm && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -1219,64 +1902,8 @@ const AdminTools: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Approval Letters Section */}
+                  {/* Service Provider Coordination Section */}
                   <div className="mb-8">
-                    <h4 className="text-lg font-semibold text-white mb-4 border-b border-gray-600 pb-2">Approval Letters Management</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {selectedViewApproval.approvalLetters && Object.entries(selectedViewApproval.approvalLetters).map(([letterType, fileName]) => {
-                        const isForwarded = forwardedLetters[`${selectedViewApproval.id}-${letterType}`];
-                        const signedLetter = signedLetters[`${selectedViewApproval.id}-${letterType}`];
-                        const dashboardNames: {[key: string]: string} = {
-                          vc: 'Vice Chancellor',
-                          admin: 'University Administration',
-                          warden: 'Warden',
-                          studentUnion: 'Student Union'
-                        };
-                        
-                        return (
-                          <div key={letterType} className="bg-gray-800/60 rounded-lg p-4">
-                            <h5 className="font-medium text-white mb-3">{dashboardNames[letterType]} Approval</h5>
-                            
-                            <div className="mb-3">
-                              <span className="text-sm text-white/70">Submitted Letter:</span>
-                              <div className="text-blue-300 text-sm mt-1">{fileName}</div>
-                            </div>
-                            
-                            <div className="space-y-2">
-                              {!isForwarded ? (
-                                <button
-                                  onClick={() => handleForwardLetter(letterType)}
-                                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm transition-colors"
-                                >
-                                  Forward to {dashboardNames[letterType]} Dashboard
-                                </button>
-                              ) : (
-                                <div className="text-green-400 text-sm mb-2">✓ Forwarded to {dashboardNames[letterType]}</div>
-                              )}
-                              
-                              {isForwarded && !signedLetter && (
-                                <button
-                                  onClick={() => handleUploadSignedLetter(letterType)}
-                                  className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-sm transition-colors"
-                                >
-                                  Upload Signed Letter
-                                </button>
-                              )}
-                              
-                              {signedLetter && (
-                                <div className="text-green-400 text-sm">
-                                  ✓ Signed letter uploaded: {signedLetter}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Service Provider Forwarding Section */}
-                  <div className="mb-6">
                     <h4 className="text-lg font-semibold text-white mb-4 border-b border-gray-600 pb-2">Service Provider Coordination</h4>
                     <div className="bg-gray-800/60 rounded-lg p-4">
                       <div className="flex items-center justify-between">
@@ -1285,33 +1912,491 @@ const AdminTools: React.FC = () => {
                           <p className="text-white/70 text-sm">
                             Send event planning request with all service details to Service Provider for approval
                           </p>
+                          {selectedViewApproval.serviceProviderStatus && (
+                            <div className="mt-2">
+                              <span className="text-sm text-white/70">Status: </span>
+                              <span className={`text-sm font-semibold ${
+                                selectedViewApproval.serviceProviderStatus === 'approved' 
+                                  ? 'text-green-400' 
+                                  : selectedViewApproval.serviceProviderStatus === 'rejected'
+                                  ? 'text-red-400'
+                                  : 'text-yellow-400'
+                              }`}>
+                                {selectedViewApproval.serviceProviderStatus === 'approved' ? 'Approved' : 
+                                 selectedViewApproval.serviceProviderStatus === 'rejected' ? 'Rejected' : 
+                                 'Pending'}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        <button
+                        {/* <button
                           onClick={handleForwardToServiceProvider}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold transition-colors"
+                          disabled={selectedViewApproval.serviceProviderStatus === 'notified'}
+                          className={`px-6 py-2 rounded font-semibold transition-colors ${
+                            selectedViewApproval.serviceProviderStatus === 'notified'
+                              ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                          }`}
                         >
-                          Forward to Service Provider
-                        </button>
+                          {selectedViewApproval.serviceProviderStatus === 'notified' ? 'Already Notified' : 'Notify Service Provider'}
+                        </button> */}
                       </div>
+                      
+                      {/* Testing Section - Remove in production */}
+                      {selectedViewApproval.serviceProviderStatus === 'notified' && (
+                        <div className="mt-4 pt-4 border-t border-gray-600">
+                          <h6 className="text-sm font-medium text-yellow-400 mb-2">🧪 Testing: Simulate Service Provider Response</h6>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => simulateServiceProviderResponse(selectedViewApproval.id, 'approved')}
+                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition-colors"
+                            >
+                              Simulate Approve
+                            </button>
+                            <button
+                              onClick={() => simulateServiceProviderResponse(selectedViewApproval.id, 'rejected')}
+                              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition-colors"
+                            >
+                              Simulate Reject
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
+                            This simulates what happens when Service Provider responds. Remove in production.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
+
+                  {/* Super Admin Final Decision Section */}
+                  {selectedViewApproval.serviceProviderStatus && selectedViewApproval.serviceProviderStatus !== 'pending' && (
+                    <div className="mb-8">
+                      <h4 className="text-lg font-semibold text-white mb-4 border-b border-gray-600 pb-2">Super Admin Final Decision</h4>
+                      <div className="bg-gray-800/60 rounded-lg p-4">
+                        <div className="mb-4">
+                          <h5 className="font-medium text-white mb-2">Review All Approvals</h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                            <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${selectedViewApproval.authorityApprovals?.vc ? 'bg-green-900/60 text-green-200' : 'bg-gray-700/60 text-gray-300'}`}>
+                              <span className={`w-2 h-2 rounded-full ${selectedViewApproval.authorityApprovals?.vc ? 'bg-green-400' : 'bg-gray-400'}`}></span>
+                              <span className="text-xs">VC</span>
+                            </div>
+                            <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${selectedViewApproval.authorityApprovals?.warden ? 'bg-green-900/60 text-green-200' : 'bg-gray-700/60 text-gray-300'}`}>
+                              <span className={`w-2 h-2 rounded-full ${selectedViewApproval.authorityApprovals?.warden ? 'bg-green-400' : 'bg-gray-400'}`}></span>
+                              <span className="text-xs">Warden</span>
+                            </div>
+                            <div className={`flex items-center space-x-1 px-3 py-1 rounded-lg ${selectedViewApproval.authorityApprovals?.administration ? 'bg-green-900/60 text-green-200' : 'bg-gray-700/60 text-gray-300'}`}>
+                              <span className={`w-2 h-2 rounded-full ${selectedViewApproval.authorityApprovals?.administration ? 'bg-green-400' : 'bg-gray-400'}`}></span>
+                              <span className="text-xs">Admin</span>
+                            </div>
+                            <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${selectedViewApproval.authorityApprovals?.student_union ? 'bg-green-900/60 text-green-200' : 'bg-gray-700/60 text-gray-300'}`}>
+                              <span className={`w-2 h-2 rounded-full ${selectedViewApproval.authorityApprovals?.student_union ? 'bg-green-400' : 'bg-gray-400'}`}></span>
+                              <span className="text-xs">SU</span>
+                            </div>
+                          </div>
+                          
+                          <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${
+                            selectedViewApproval.serviceProviderStatus === 'approved' ? 'bg-green-900/60 text-green-200' :
+                            selectedViewApproval.serviceProviderStatus === 'rejected' ? 'bg-red-900/60 text-red-200' :
+                            selectedViewApproval.serviceProviderStatus === 'notified' ? 'bg-blue-900/60 text-blue-200' :
+                            'bg-yellow-900/60 text-yellow-200'
+                          }`}>
+                            <span className={`w-2 h-2 rounded-full ${
+                              selectedViewApproval.serviceProviderStatus === 'approved' ? 'bg-green-400' :
+                              selectedViewApproval.serviceProviderStatus === 'rejected' ? 'bg-red-400' :
+                              selectedViewApproval.serviceProviderStatus === 'notified' ? 'bg-blue-400' :
+                              'bg-yellow-400'
+                            }`}></span>
+                            <span className="text-xs">Service Provider: {selectedViewApproval.serviceProviderStatus === 'approved' ? 'Approved' : 
+                             selectedViewApproval.serviceProviderStatus === 'rejected' ? 'Rejected' : 
+                             selectedViewApproval.serviceProviderStatus === 'notified' ? 'Notified' :
+                             'Pending'}</span>
+                          </div>
+                        </div>
+
+                        {/* Authority Signed Letters Section */}
+                        <div className="mt-4 pt-4 border-t border-gray-600">
+                          <h6 className="text-sm font-medium text-blue-300 mb-3">📄 Authority Signed Letters</h6>
+                          <p className="text-xs text-gray-400 mb-3">
+                            View and download the signed letters uploaded by each authority
+                          </p>
+                          
+                          {isLoadingAuthorityLetters ? (
+                            <div className="text-center py-4">
+                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                              <p className="text-white/50 text-sm">Loading authority letters...</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              {/* VC Signed Letter */}
+                              <div className="bg-gray-700/40 rounded-lg p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-medium text-white">VC Approval</span>
+                                  {authorityLetters.find(letter => letter.role === 'vice-chancellor') && (
+                                    <span className="text-xs text-green-400">✓ Available</span>
+                                  )}
+                                </div>
+                                <div className="text-center">
+                                  {authorityLetters.find(letter => letter.role === 'vice-chancellor') ? (
+                                    <div className="mb-2">
+                                      <div className="text-xs text-gray-300 bg-gray-600/60 rounded px-2 py-1 mb-2">
+                                        Vice Chancellor Approval
+                                      </div>
+                                      <button
+                                        onClick={() => handleViewAuthorityLetter('vice-chancellor')}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors w-full"
+                                      >
+                                        👁️ View Letter
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-gray-400">No letter uploaded</div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Warden Signed Letter */}
+                              <div className="bg-gray-700/40 rounded-lg p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-medium text-white">Warden Approval</span>
+                                  {authorityLetters.find(letter => letter.role === 'warden') && (
+                                    <span className="text-xs text-green-400">✓ Available</span>
+                                  )}
+                                </div>
+                                <div className="text-center">
+                                  {authorityLetters.find(letter => letter.role === 'warden') ? (
+                                    <div className="mb-2">
+                                      <div className="text-xs text-gray-300 bg-gray-600/60 rounded px-2 py-1 mb-2">
+                                        Warden Approval
+                                      </div>
+                                      <button
+                                        onClick={() => handleViewAuthorityLetter('warden')}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors w-full"
+                                      >
+                                        👁️ View Letter
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-gray-400">No letter uploaded</div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Administration Signed Letter */}
+                              <div className="bg-gray-700/40 rounded-lg p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-medium text-white">Administration</span>
+                                  {authorityLetters.find(letter => letter.role === 'administration') && (
+                                    <span className="text-xs text-green-400">✓ Available</span>
+                                  )}
+                                </div>
+                                <div className="text-center">
+                                  {authorityLetters.find(letter => letter.role === 'administration') ? (
+                                    <div className="mb-2">
+                                      <div className="text-xs text-gray-300 bg-gray-600/60 rounded px-2 py-1 mb-2">
+                                        Administration Approval
+                                      </div>
+                                      <button
+                                        onClick={() => handleViewAuthorityLetter('administration')}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors w-full"
+                                      >
+                                        👁️ View Letter
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-gray-400">No letter uploaded</div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Student Union Signed Letter */}
+                              <div className="bg-gray-700/40 rounded-lg p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-medium text-white">Student Union</span>
+                                  {authorityLetters.find(letter => letter.role === 'student-union') && (
+                                    <span className="text-xs text-green-400">✓ Available</span>
+                                  )}
+                                </div>
+                                <div className="text-center">
+                                  {authorityLetters.find(letter => letter.role === 'student-union') ? (
+                                    <div className="mb-2">
+                                      <div className="text-xs text-gray-300 bg-gray-600/60 rounded px-2 py-1 mb-2">
+                                        Student Union Approval
+                                      </div>
+                                      <button
+                                        onClick={() => handleViewAuthorityLetter('student-union')}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors w-full"
+                                      >
+                                        👁️ View Letter
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-gray-400">No letter uploaded</div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+
+                        </div>
+                        
+                        {/* <div className="flex space-x-3">
+                          <button
+                            onClick={() => handleApproval(selectedViewApproval.id, 'approve')}
+                            disabled={!selectedViewApproval.authorityApprovals?.vc || 
+                                     !selectedViewApproval.authorityApprovals?.warden || 
+                                     !selectedViewApproval.authorityApprovals?.administration || 
+                                     !selectedViewApproval.authorityApprovals?.student_union ||
+                                     selectedViewApproval.serviceProviderStatus !== 'approved'}
+                            className={`px-6 py-2 rounded font-semibold transition-colors flex items-center ${
+                              !selectedViewApproval.authorityApprovals?.vc || 
+                              !selectedViewApproval.authorityApprovals?.warden || 
+                              !selectedViewApproval.authorityApprovals?.administration || 
+                              !selectedViewApproval.authorityApprovals?.student_union ||
+                              selectedViewApproval.serviceProviderStatus !== 'approved'
+                                ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                : 'bg-green-600 hover:bg-green-700 text-white'
+                            }`}
+                          >
+                            <CheckCircle size={16} className="mr-2" />
+                            Final Approve Event
+                          </button>
+                          
+                          <button
+                            onClick={() => handleApproval(selectedViewApproval.id, 'reject')}
+                            className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold transition-colors flex items-center"
+                          >
+                            <X size={16} className="mr-2" />
+                            Final Reject Event
+                          </button>
+                        </div> */}
+                        
+                      </div>
+                    </div>
+                  )}
+
+
 
                   {/* Send to User Section */}
                   <div className="mb-6">
                     <h4 className="text-lg font-semibold text-white mb-4 border-b border-gray-600 pb-2">Final Action</h4>
                     <div className="bg-gray-800/60 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
+                      <div className="mb-4">
+                        <h5 className="font-medium text-white mb-3">Upload Signed Letters</h5>
+                        <p className="text-white/70 text-sm mb-4">
+                          Upload all 4 signed letters to send them to {selectedViewApproval.requestedBy}
+                        </p>
+                        
+                        {/* Signed Letters Upload Section */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                          {/* VC Letter Upload */}
+                          <div className="bg-gray-700/40 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-white">VC Approval</span>
+                              {isLetterUploaded('vc') && (
+                                <span className="text-xs text-green-400">✓ Uploaded</span>
+                              )}
+                            </div>
+                            <div className="flex flex-col space-y-2">
+                              {isLetterUploaded('vc') ? (
+                                <div className="text-xs text-gray-300 bg-gray-600/60 rounded px-2 py-1">
+                                  {getSignedLetterDisplayText('vc')}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-gray-400">No file uploaded</div>
+                              )}
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleUploadSignedLetter('vc')}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors"
+                                >
+                                  {isLetterUploaded('vc') ? 'Change File' : 'Upload File'}
+                                </button>
+                                {isLetterUploaded('vc') && (
+                                  <button
+                                    onClick={() => handleRemoveSignedLetter('vc')}
+                                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs transition-colors"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Warden Letter Upload */}
+                          <div className="bg-gray-700/40 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-white">Warden Approval</span>
+                              {isLetterUploaded('warden') && (
+                                <span className="text-xs text-green-400">✓ Uploaded</span>
+                              )}
+                            </div>
+                            <div className="flex flex-col space-y-2">
+                              {isLetterUploaded('warden') ? (
+                                <div className="text-xs text-gray-300 bg-gray-600/60 rounded px-2 py-1">
+                                  {getSignedLetterDisplayText('warden')}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-gray-400">No file uploaded</div>
+                              )}
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleUploadSignedLetter('warden')}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors"
+                                >
+                                  {isLetterUploaded('warden') ? 'Change File' : 'Upload File'}
+                                </button>
+                                {isLetterUploaded('warden') && (
+                                  <button
+                                    onClick={() => handleRemoveSignedLetter('warden')}
+                                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs transition-colors"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Service Provider Letter Upload */}
+                          <div className="bg-gray-700/40 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-white">Service Provider</span>
+                              {isLetterUploaded('serviceProvider') && (
+                                <span className="text-xs text-green-400">✓ Uploaded</span>
+                              )}
+                            </div>
+                            <div className="flex flex-col space-y-2">
+                              {isLetterUploaded('serviceProvider') ? (
+                                <div className="text-xs text-gray-300 bg-gray-600/60 rounded px-2 py-1">
+                                  {getSignedLetterDisplayText('serviceProvider')}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-gray-400">No file uploaded</div>
+                              )}
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleUploadSignedLetter('serviceProvider')}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors"
+                                >
+                                  {isLetterUploaded('serviceProvider') ? 'Change File' : 'Upload File'}
+                                </button>
+                                {isLetterUploaded('serviceProvider') && (
+                                  <button
+                                    onClick={() => handleRemoveSignedLetter('serviceProvider')}
+                                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs transition-colors"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Administration Letter Upload */}
+                          <div className="bg-gray-700/40 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-white">Administration</span>
+                              {isLetterUploaded('administration') && (
+                                <span className="text-xs text-green-400">✓ Uploaded</span>
+                              )}
+                            </div>
+                            <div className="flex flex-col space-y-2">
+                              {isLetterUploaded('administration') ? (
+                                <div className="text-xs text-gray-300 bg-gray-600/60 rounded px-2 py-1">
+                                  {getSignedLetterDisplayText('administration')}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-gray-400">No file uploaded</div>
+                              )}
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleUploadSignedLetter('administration')}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors"
+                                >
+                                  {isLetterUploaded('administration') ? 'Change File' : 'Upload File'}
+                                </button>
+                                {isLetterUploaded('administration') && (
+                                  <button
+                                    onClick={() => handleRemoveSignedLetter('administration')}
+                                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs transition-colors"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Upload Progress Indicator */}
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between text-sm text-white/70 mb-2">
+                            <span>Upload Progress:</span>
+                            <span>{[isLetterUploaded('vc'), isLetterUploaded('warden'), isLetterUploaded('serviceProvider'), isLetterUploaded('administration')].filter(Boolean).length}/4 letters uploaded</span>
+                          </div>
+                          <div className="w-full bg-gray-700 rounded-full h-2">
+                            <div 
+                              className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                              style={{ 
+                                width: `${([isLetterUploaded('vc'), isLetterUploaded('warden'), isLetterUploaded('serviceProvider'), isLetterUploaded('administration')].filter(Boolean).length / 4) * 100}%` 
+                              }}
+                            ></div>
+                          </div>
+                          
+                          {/* Status Summary */}
+                          <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <div className={`text-xs px-2 py-1 rounded ${
+                              isLetterUploaded('vc')
+                                ? 'bg-green-900/60 text-green-200' 
+                                : 'bg-red-900/60 text-red-200'
+                            }`}>
+                              VC: {isLetterUploaded('vc') ? '✓ Ready' : '✗ Missing'}
+                            </div>
+                            <div className={`text-xs px-2 py-1 rounded ${
+                              isLetterUploaded('warden')
+                                ? 'bg-green-900/60 text-green-200' 
+                                : 'bg-red-900/60 text-red-200'
+                            }`}>
+                              Warden: {isLetterUploaded('warden') ? '✓ Ready' : '✗ Missing'}
+                            </div>
+                            <div className={`text-xs px-2 py-1 rounded ${
+                              isLetterUploaded('serviceProvider')
+                                ? 'bg-green-900/60 text-green-200' 
+                                : 'bg-red-900/60 text-red-200'
+                            }`}>
+                              Service Provider: {isLetterUploaded('serviceProvider') ? '✓ Ready' : '✗ Missing'}
+                            </div>
+                            <div className={`text-xs px-2 py-1 rounded ${
+                              isLetterUploaded('administration')
+                                ? 'bg-green-900/60 text-green-200' 
+                                : 'bg-red-900/60 text-red-200'
+                            }`}>
+                              Administration: {isLetterUploaded('administration') ? '✓ Ready' : '✗ Missing'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Send Button Section */}
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-600">
                         <div>
                           <h5 className="font-medium text-white mb-2">Send All Signed Letters to User</h5>
                           <p className="text-white/70 text-sm">
-                            Upload all 4 signed letters to send them to {selectedViewApproval.requestedBy}
+                            All 4 signed letters must be uploaded before sending to {selectedViewApproval.requestedBy}
                           </p>
                         </div>
                         <button
                           onClick={handleSendToUser}
-                          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-semibold transition-colors"
+                          disabled={[isLetterUploaded('vc'), isLetterUploaded('warden'), isLetterUploaded('serviceProvider'), isLetterUploaded('administration')].filter(Boolean).length < 4}
+                          className={`px-6 py-2 rounded font-semibold transition-colors flex items-center ${
+                            [isLetterUploaded('vc'), isLetterUploaded('warden'), isLetterUploaded('serviceProvider'), isLetterUploaded('administration')].filter(Boolean).length < 4
+                              ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                              : 'bg-green-600 hover:bg-green-700 text-white'
+                          }`}
                         >
-                          Send to User
+                          📧 Send All Signed Letters to User
                         </button>
                       </div>
                     </div>
@@ -1515,9 +2600,37 @@ const AdminTools: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      </div>
+
+            {/* Simple PDF Viewer Modal - Same as VC Dashboard */}
+            {showFilePreviewModal && selectedFilePreview && (
+              <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-90 z-50">
+                <div className="bg-black rounded-lg shadow-xl p-6 w-full max-w-4xl h-full flex flex-col">
+                  <button
+                    className="absolute top-2 right-2 text-white hover:text-gray-300 text-2xl font-bold"
+                    onClick={() => {
+                      setShowFilePreviewModal(false);
+                      setSelectedFilePreview(null);
+                    }}
+                  >
+                    ×
+                  </button>
+                  <div className="flex-1 flex items-center justify-center">
+                    {selectedFilePreview.authorityLetter?.letter_content && (
+                      <iframe
+                        src={`data:application/pdf;base64,${selectedFilePreview.authorityLetter.letter_content}`}
+                        className="w-full h-full"
+                        title="PDF Viewer"
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+      <NotificationPopup 
+        isOpen={isNotificationPopupOpen} 
+        onClose={() => setIsNotificationPopupOpen(false)} 
+      />
     </Layout>
   );
 };

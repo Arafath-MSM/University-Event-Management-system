@@ -7,8 +7,7 @@ import { Eye, EyeOff, Info, Shield } from 'lucide-react';
 const Login: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
-    role: 'student'
+    password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -16,10 +15,6 @@ const Login: React.FC = () => {
   
   const { login } = useAuth();
   const navigate = useNavigate();
-
-  // Define role categories
-  const publicRoles = ['student', 'faculty'];
-  const authorityRoles = ['super-admin', 'service-provider', 'vice-chancellor', 'administration', 'student-union', 'warden'];
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -34,10 +29,6 @@ const Login: React.FC = () => {
       newErrors.password = 'Password is required';
     }
     
-    if (!formData.role) {
-      newErrors.role = 'Role is required';
-    }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -47,7 +38,6 @@ const Login: React.FC = () => {
     
     console.log('Login attempt started with:', { 
       email: formData.email, 
-      role: formData.role, 
       passwordLength: formData.password.length 
     });
     
@@ -60,17 +50,11 @@ const Login: React.FC = () => {
     
     try {
       console.log('Calling login function...');
-      const success = await login(formData.email, formData.password, formData.role);
+      const success = await login(formData.email, formData.password);
       console.log('Login result:', success);
       if (success) {
-        // Redirect based on role
-        if (formData.role === 'admin' || formData.role === 'super-admin') {
-          navigate('/admin/dashboard');
-        } else if (formData.role === 'service-provider') {
-          navigate('/dashboards/service-provider');
-        } else {
-          navigate('/dashboard');
-        }
+        // Redirect to dashboard - role will be determined by the backend
+        navigate('/dashboard');
       } else {
         console.log('Login failed - invalid credentials');
         setErrors({ general: 'Invalid credentials. Please try again.' });
@@ -92,8 +76,6 @@ const Login: React.FC = () => {
     }
   };
 
-  const isAuthorityRole = authorityRoles.includes(formData.role);
-
   return (
     <div className="min-h-screen w-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 relative" style={{ width: '100vw', margin: 0, padding: 0, backgroundColor: '#bd7880' }}>
       <div className="max-w-md w-full z-10">
@@ -102,19 +84,6 @@ const Login: React.FC = () => {
           <h1 className="text-4xl font-bold text-white mb-2">Welcome Back</h1>
           <p className="text-white/80">Sign in to your Eventra account</p>
         </div>
-
-        {/* Authority Role Alert */}
-        {isAuthorityRole && (
-          <div className="bg-black/20 backdrop-blur-sm border border-white/30 rounded-xl p-4 mb-6">
-            <div className="flex items-start space-x-3">
-              <Shield className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-white">
-                <p className="font-semibold mb-1">Authority Account</p>
-                <p>This role requires administrator-created credentials. Contact your system administrator if you need access.</p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Error Message */}
         {errors.general && (
@@ -169,36 +138,7 @@ const Login: React.FC = () => {
               {errors.password && <p className="mt-1 text-sm text-red-400">{errors.password}</p>}
             </div>
 
-            {/* Role Selection */}
-            <div>
-              <label htmlFor="role" className="block text-sm font-bold text-white mb-2">
-                Role
-              </label>
-              <select
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                className={`rounded-xl bg-black bg-opacity-60 border border-gray-700 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full px-4 py-3 text-base font-semibold shadow-none outline-none ${errors.role ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''}`}
-              >
-                {/* Public Roles */}
-                <optgroup label="Public Roles">
-                  <option value="student">Student</option>
-                  <option value="faculty">Faculty</option>
-                </optgroup>
-                
-                {/* Authority Roles */}
-                <optgroup label="Authority Roles">
-                  <option value="super-admin">Super Admin</option>
-                  <option value="service-provider">Service Provider</option>
-                  <option value="vice-chancellor">Vice Chancellor</option>
-                  <option value="administration">Administration of UWU</option>
-                  <option value="student-union">Student Union</option>
-                  <option value="warden">Warden</option>
-                </optgroup>
-              </select>
-              {errors.role && <p className="mt-1 text-sm text-red-400">{errors.role}</p>}
-            </div>
+
 
             {/* Submit Button */}
             <button

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Bell, User, Settings, LogOut, Menu, X } from 'lucide-react';
+import { DashboardNavbar } from './DashboardNavbar';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -24,7 +25,7 @@ const Layout: React.FC<LayoutProps> = ({ children, notificationBell, showSidebar
   };
 
   const getNavigationItems = () => {
-    if (user?.role === 'admin' || user?.role === 'super-admin') {
+    if (user?.role === 'super-admin') {
       return [
         { name: 'Dashboard', path: '/admin/dashboard', icon: '📊' },
         { name: 'Admin Tools', path: '/admin/tools', icon: '🔧' },
@@ -83,52 +84,49 @@ const Layout: React.FC<LayoutProps> = ({ children, notificationBell, showSidebar
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9V5.25A1.5 1.5 0 015.25 3.75H9m6 0h3.75a1.5 1.5 0 011.5 1.5V9m0 6v3.75a1.5 1.5 0 01-1.5 1.5H15m-6 0H5.25a1.5 1.5 0 01-1.5-1.5V15" />
                 </svg>
               </button>
-              {/* Notifications */}
+              {/* Notifications - Use DashboardNavbar for proper notification handling */}
               {notificationBell ? notificationBell : (
-                <button className="p-2 text-white hover:text-blue-200 hover:bg-black rounded-lg relative">
-                  <Bell size={20} />
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    3
-                  </span>
-                </button>
+                <DashboardNavbar showFullNavbar={false} />
               )}
 
-              {/* Profile Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                  className="flex items-center space-x-3 p-2 text-white hover:text-blue-200 hover:bg-black rounded-lg"
-                >
-                  <div className="bg-white text-black w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium">
-                    {user?.name.split(' ').map(n => n[0]).join('')}
-                  </div>
-                  <div className="hidden sm:block text-left">
-                    <div className="text-sm font-medium text-white">{user?.name}</div>
-                    <div className="text-xs text-white capitalize">{user?.role}</div>
-                  </div>
-                </button>
+              {/* Profile Dropdown - Only show when using custom notificationBell */}
+              {notificationBell && (
+                <div className="relative">
+                  <button
+                    onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                    className="flex items-center space-x-3 p-2 text-white hover:text-blue-200 hover:bg-black rounded-lg"
+                  >
+                    <div className="bg-white text-black w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium">
+                      {user?.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div className="hidden sm:block text-left">
+                      <div className="text-sm font-medium text-white">{user?.name}</div>
+                      <div className="text-xs text-white capitalize">{user?.role}</div>
+                    </div>
+                  </button>
 
-                {/* Dropdown Menu */}
-                {isProfileDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-gray-900/90 rounded-lg shadow-lg border border-gray-700 py-1 z-50">
-                    <Link
-                      to="/profile"
-                      className="flex items-center px-4 py-2 text-sm text-white hover:bg-gray-800"
-                      onClick={() => setIsProfileDropdownOpen(false)}
-                    >
-                      <User size={16} className="mr-3" />
-                      Profile
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center w-full px-4 py-2 text-sm text-white hover:bg-gray-800"
-                    >
-                      <LogOut size={16} className="mr-3" />
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
+                  {/* Dropdown Menu */}
+                  {isProfileDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-gray-900/90 rounded-lg shadow-lg border border-gray-700 py-1 z-50">
+                      <Link
+                        to="/profile"
+                        className="flex items-center px-4 py-2 text-sm text-white hover:bg-gray-800"
+                        onClick={() => setIsProfileDropdownOpen(false)}
+                      >
+                        <User size={16} className="mr-3" />
+                        Profile
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center w-full px-4 py-2 text-sm text-white hover:bg-gray-800"
+                      >
+                        <LogOut size={16} className="mr-3" />
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

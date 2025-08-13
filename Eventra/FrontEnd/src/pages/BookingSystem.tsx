@@ -1,30 +1,45 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Calendar, Clock, MapPin, Users, Search, Plus, X } from 'lucide-react';
+import apiService from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Booking {
   id: string;
-  eventTitle: string;
-  venue: string;
+  event_title: string;
+  venue_name: string;
   date: string;
   time: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   participants: number;
   description: string;
-  facilities: string[];
+  facilities?: string[];
+}
+
+interface Venue {
+  id: number;
+  name: string;
+  capacity: number;
+  location: string;
+  type: string;
+  availability: 'Available' | 'Booked' | 'Maintenance';
 }
 
 const BookingSystem: React.FC = () => {
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [minCapacity, setMinCapacity] = useState('');
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const [bookingForm, setBookingForm] = useState({
-    venue: '',
-    eventTitle: '',
+    venue_id: '',
+    event_title: '',
     description: '',
     date: '',
     time: '',
@@ -32,33 +47,10 @@ const BookingSystem: React.FC = () => {
     facilities: [] as string[]
   });
 
-  // Mock bookings data
-  const [bookings, setBookings] = useState<Booking[]>([
-    {
-      id: '1',
-      eventTitle: 'Research Conference 2025',
-      venue: 'Main Lecture Theater',
-      date: '2025-01-15',
-      time: '10:00 AM',
-      status: 'approved',
-      participants: 600,
-      description: 'Annual research conference',
-      facilities: ['Projector', 'Microphone']
-    },
-    {
-      id: '2',
-      eventTitle: 'Max Hackathon',
-      venue: 'Main Computer Lab',
-      date: '2025-05-21',
-      time: '2:00 PM',
-      status: 'pending',
-      participants: 100,
-      description: 'Skill development competition',
-      facilities: ['Wi-Fi', 'Whiteboard']
-    }
-  ]);
+  // Real bookings data from API
+  const [bookings, setBookings] = useState<Booking[]>([]);
 
-  // Mock venues for booking
+  // Dummy venues for booking (keeping the 4 original venues)
   const availableVenues = [
     { id: '1', name: 'E BlockMain Auditorium', capacity: 500, available: true },
     { id: '2', name: 'Technology Lecture Theater', capacity: 250, available: false },
@@ -76,42 +68,103 @@ const BookingSystem: React.FC = () => {
     '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM', '10:00 PM', '11:00 PM', '12:00 AM'
   ];
 
+  // Fetch user's bookings on component mount
+  useEffect(() => {
+    fetchUserBookings();
+  }, []);
+
+  const fetchUserBookings = async () => {
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      // Fetch user's bookings from backend
+      const bookingsResponse = await apiService.getBookings({
+        user_id: parseInt(user?.id || '0'),
+        status: undefined // Get all bookings
+      });
+      
+      if (bookingsResponse.success) {
+        setBookings(bookingsResponse.data || []);
+      }
+    } catch (error: any) {
+      console.error('Error fetching bookings:', error);
+      setError('Failed to load bookings. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSearchVenues = () => {
     // Filter logic would go here
     console.log('Searching venues with:', { selectedDate, selectedTime, minCapacity });
   };
 
-  const handleBookingSubmit = (e: React.FormEvent) => {
+  const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const newBooking: Booking = {
-      id: Date.now().toString(),
-      eventTitle: bookingForm.eventTitle,
-      venue: bookingForm.venue,
-      date: bookingForm.date,
-      time: bookingForm.time,
-      status: 'pending',
-      participants: parseInt(bookingForm.participants),
-      description: bookingForm.description,
-      facilities: bookingForm.facilities
-    };
+    try {
+      const bookingData = {
+        venue_id: parseInt(bookingForm.venue_id),
+        event_title: bookingForm.event_title,
+        description: bookingForm.description,
+        date: bookingForm.date,
+        time: bookingForm.time,
+        participants: parseInt(bookingForm.participants),
+        facilities: bookingForm.facilities
+      };
 
-    setBookings([...bookings, newBooking]);
-    setShowBookingForm(false);
-    setBookingForm({
-      venue: '',
-      eventTitle: '',
-      description: '',
-      date: '',
-      time: '',
-      participants: '',
-      facilities: []
-    });
+      console.log('Submitting booking data:', bookingData);
+      const response = await apiService.createBooking(bookingData);
+      console.log('Booking response:', response);
+      
+      if (response.success) {
+        // Show success message
+        setError(''); // Clear any previous errors
+        setSuccess('Booking created successfully!');
+        
+        // Refresh bookings list
+        await fetchUserBookings();
+        setShowBookingForm(false);
+        setBookingForm({
+          venue_id: '',
+          event_title: '',
+          description: '',
+          date: '',
+          time: '',
+          participants: '',
+          facilities: []
+        });
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(response.message || 'Failed to create booking');
+      }
+    } catch (error: any) {
+      console.error('Error creating booking:', error);
+      setError('Failed to create booking. Please try again.');
+    }
   };
 
-  const handleCancelBooking = (bookingId: string) => {
+  const handleCancelBooking = async (bookingId: string) => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
-      setBookings(bookings.filter(b => b.id !== bookingId));
+      try {
+        const response = await apiService.cancelBooking(parseInt(bookingId));
+        
+        if (response.success) {
+          setSuccess('Booking cancelled successfully!');
+          // Refresh bookings list to show updated status
+          await fetchUserBookings();
+          // Clear success message after 3 seconds
+          setTimeout(() => setSuccess(''), 3000);
+        } else {
+          setError(response.message || 'Failed to cancel booking');
+        }
+      } catch (error: any) {
+        console.error('Error canceling booking:', error);
+        setError('Failed to cancel booking. Please try again.');
+      }
     }
   };
 
@@ -124,17 +177,32 @@ const BookingSystem: React.FC = () => {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'approved':
         return 'bg-green-100 text-green-800';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       case 'rejected':
         return 'bg-red-100 text-red-800';
+      case 'cancelled':
+        return 'bg-gray-500 text-white';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="min-h-screen w-full flex items-center justify-center" style={{ backgroundColor: '#bd7880' }}>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -152,6 +220,20 @@ const BookingSystem: React.FC = () => {
               New Booking
             </button>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-900/50 border border-red-500/30 rounded-xl p-4 mb-6">
+              <p className="text-sm text-red-100">{error}</p>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {success && (
+            <div className="bg-green-900/50 border border-green-500/30 rounded-xl p-4 mb-6">
+              <p className="text-sm text-green-100">{success}</p>
+            </div>
+          )}
 
           {/* Available Venues */}
           <div className="bg-black bg-opacity-60 rounded-xl p-6">
@@ -183,7 +265,7 @@ const BookingSystem: React.FC = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setBookingForm({ ...bookingForm, venue: venue.name });
+                        setBookingForm({ ...bookingForm, venue_id: venue.id });
                         setShowBookingForm(true);
                       }}
                       className="mt-3 w-full bg-gray-700/80 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -199,68 +281,77 @@ const BookingSystem: React.FC = () => {
           {/* Booking History */}
           <div className="bg-black bg-opacity-60 rounded-xl p-6">
             <h2 className="text-xl font-bold text-white mb-4">My Bookings</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-medium text-white">Event Title</th>
-                    <th className="text-left py-3 px-4 font-medium text-white">Venue</th>
-                    <th className="text-left py-3 px-4 font-medium text-white">Date & Time</th>
-                    <th className="text-left py-3 px-4 font-medium text-white">Participants</th>
-                    <th className="text-left py-3 px-4 font-medium text-white">Status</th>
-                    <th className="text-left py-3 px-4 font-medium text-white">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bookings.map((booking) => (
-                    <tr key={booking.id} className="border-b border-gray-100 bg-gray-800/70 hover:bg-gray-700">
-                      <td className="py-4 px-4 text-white">
-                        <div>
-                          <div className="font-medium text-white">{booking.eventTitle}</div>
-                          <div className="text-sm text-gray-200">{booking.description}</div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-white">
-                        <div className="flex items-center">
-                          <MapPin size={16} className="mr-2 text-white" />
-                          {booking.venue}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-white">
-                        <div className="flex items-center">
-                          <Calendar size={16} className="mr-2 text-white" />
-                          <div>
-                            <div>{booking.date}</div>
-                            <div className="text-sm text-gray-200">{booking.time}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-white">
-                        <div className="flex items-center">
-                          <Users size={16} className="mr-2 text-white" />
-                          {booking.participants}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-white">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
-                          {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-white">
-                        {booking.status === 'pending' && (
-                          <button
-                            onClick={() => handleCancelBooking(booking.id)}
-                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        )}
-                      </td>
+            {bookings.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-white/70">No bookings found. Create your first booking!</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-medium text-white">Event Title</th>
+                      <th className="text-left py-3 px-4 font-medium text-white">Venue</th>
+                      <th className="text-left py-3 px-4 font-medium text-white">Date & Time</th>
+                      <th className="text-left py-3 px-4 font-medium text-white">Participants</th>
+                      <th className="text-left py-3 px-4 font-medium text-white">Status</th>
+                      <th className="text-left py-3 px-4 font-medium text-white">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {bookings.map((booking) => (
+                      <tr key={booking.id} className="border-b border-gray-100 bg-gray-800/70 hover:bg-gray-700">
+                        <td className="py-4 px-4 text-white">
+                          <div>
+                            <div className="font-medium text-white">{booking.event_title}</div>
+                            <div className="text-sm text-gray-200">{booking.description}</div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-white">
+                          <div className="flex items-center">
+                            <MapPin size={16} className="mr-2 text-white" />
+                            {booking.venue_name}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-white">
+                          <div className="flex items-center">
+                            <Calendar size={16} className="mr-2 text-white" />
+                            <div>
+                              <div>{booking.date}</div>
+                              <div className="text-sm text-gray-200">{booking.time}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-white">
+                          <div className="flex items-center">
+                            <Users size={16} className="mr-2 text-white" />
+                            {booking.participants}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-white">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
+                            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-white">
+                          {booking.status === 'pending' && (
+                            <button
+                              onClick={() => handleCancelBooking(booking.id)}
+                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                          {booking.status === 'cancelled' && (
+                            <span className="text-gray-400 text-sm">Cancelled</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Booking Form Modal */}
@@ -285,14 +376,14 @@ const BookingSystem: React.FC = () => {
                           Venue
                         </label>
                         <select
-                          value={bookingForm.venue}
-                          onChange={(e) => setBookingForm({...bookingForm, venue: e.target.value})}
+                          value={bookingForm.venue_id}
+                          onChange={(e) => setBookingForm({...bookingForm, venue_id: e.target.value})}
                           className="bg-gray-800/70 text-white border border-gray-600 rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-300"
                           required
                         >
                           <option value="">Select venue</option>
                           {availableVenues.filter(v => v.available).map(venue => (
-                            <option key={venue.id} value={venue.name}>{venue.name}</option>
+                            <option key={venue.id} value={venue.id}>{venue.name}</option>
                           ))}
                         </select>
                       </div>
@@ -303,8 +394,8 @@ const BookingSystem: React.FC = () => {
                         </label>
                         <input
                           type="text"
-                          value={bookingForm.eventTitle}
-                          onChange={(e) => setBookingForm({...bookingForm, eventTitle: e.target.value})}
+                          value={bookingForm.event_title}
+                          onChange={(e) => setBookingForm({...bookingForm, event_title: e.target.value})}
                           className="bg-gray-800/70 text-white border border-gray-600 rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-300"
                           placeholder="Enter event title"
                           required

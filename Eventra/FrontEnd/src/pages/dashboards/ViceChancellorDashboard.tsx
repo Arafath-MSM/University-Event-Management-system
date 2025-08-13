@@ -1,68 +1,218 @@
-import React, { useState } from "react";
-import { toast } from "@/components/ui/sonner";
-import DashboardNavbar from "@/components/DashboardNavbar";
-import DashboardWelcomeBanner from "@/components/DashboardWelcomeBanner";
-import DashboardSidebar from "@/components/DashboardSidebar";
-import { useAuth } from "@/contexts/AuthContext";
-import { Card } from "@/components/ui/card";
-import Layout from "@/components/Layout";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import apiService from "../../services/api";
+import { toast } from "sonner";
+import Layout from "../../components/Layout";
 import { Calendar, Clock, Users, FileText } from "lucide-react";
 
-// Dummy data for pending requests
-const dummyRequests = [
-  {
-    id: 204,
-    eventTitle: "Social Night 2025",
-    requestedBy: "Student Union",
-    dateTime: "2025-07-10 14:00",
-    venue: "Open Ground",
-    document: "/public/placeholder.pdf",
-    status: "Pending",
-  },
-  {
-    id: 205,
-    eventTitle: "Cyber Security Awareness Conference",
-    requestedBy: "Department of CSI",
-    dateTime: "2025-07-15 10:00",
-    venue: "Main Lecture Theatre",
-    document: "/public/placeholder.pdf",
-    status: "Pending",
-  },
-];
+interface EventPlan {
+  id: number;
+  title: string;
+  type: string;
+  organizer: string;
+  date: string;
+  time: string;
+  participants: number;
+  status: string;
+  current_stage: number;
+  facilities: any;
+  documents: any;
+  approval_documents?: {
+    vc_approval?: string;
+    administration_approval?: string;
+    warden_approval?: string;
+    student_union_approval?: string;
+  };
+  remarks: string;
+  user_name: string;
+  user_email: string;
+  created_at: string;
+  updated_at: string;
+}
 
-const dummySignedLetters = [
-  {
-    id: 201,
-    eventTitle: "CST Alumni Meetup",
-    date: "2025-06-20",
-    document: "/public/placeholder.pdf",
-    status: "Sent to Admin",
-  },
-  {
-    id: 202,
-    eventTitle: "Research Conference",
-    date: "2025-06-25",
-    document: "/public/placeholder.pdf",
-    status: "Pending",
-  },
-];
+interface SignedLetter {
+  id: number;
+  booking_id: number;
+  event_plan_id?: number;
+  from_role: string;
+  to_role: string;
+  letter_type: string;
+  letter_content: string;
+  signature_data: any;
+  status: string;
+  sent_at: string;
+  received_at: string;
+  event_title: string;
+  user_name: string;
+  created_at: string;
+  updated_at: string;
+}
 
 const ViceChancellorDashboard: React.FC = () => {
-  const [requests, setRequests] = useState(dummyRequests);
-  const [signedLetters, setSignedLetters] = useState(dummySignedLetters);
-  const [activeTab, setActiveTab] = useState("pending");
+  const [requests, setRequests] = useState<EventPlan[]>([]);
+  const [signedLetters, setSignedLetters] = useState<SignedLetter[]>([]);
+  const [approvedEventPlans, setApprovedEventPlans] = useState<EventPlan[]>([]);
+  const [rejectedEventPlans, setRejectedEventPlans] = useState<EventPlan[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<EventPlan | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
-  const [signature, setSignature] = useState<string | null>(null);
   const [comment, setComment] = useState("");
   const [rejectionComment, setRejectionComment] = useState("");
+  const [signature, setSignature] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingApprovalDocs, setLoadingApprovalDocs] = useState<number[]>([]);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [selectedPdfUrl, setSelectedPdfUrl] = useState<string | null>(null);
+  const [uploadedSignedDocs, setUploadedSignedDocs] = useState<{[key: number]: string}>({});
+  const { user } = useAuth();
+
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Load approval documents for a specific event plan
+  const loadApprovalDocuments = async (eventPlanId: number) => {
+    try {
+      setLoadingApprovalDocs(prev => [...prev, eventPlanId]);
+      const response = await apiService.getEventPlanApprovalDocuments(eventPlanId);
+      
+      if (response.success) {
+        setRequests(prev => prev.map(plan => 
+          plan.id === eventPlanId 
+            ? { ...plan, approval_documents: response.data }
+            : plan
+        ));
+      }
+    } catch (error) {
+      console.error('Error loading approval documents:', error);
+    } finally {
+      setLoadingApprovalDocs(prev => prev.filter(id => id !== eventPlanId));
+    }
+  };
+
+  const handleViewPdf = (pdfData: string) => {
+    console.log('PDF Data received:', pdfData ? pdfData.substring(0, 100) + '...' : 'null');
+    
+    if (!pdfData) {
+      toast.error('No PDF data available');
+      return;
+    }
+    
+    // Check if it's a valid data URL
+    if (!pdfData.startsWith('data:application/pdf;base64,') && !pdfData.startsWith('data:application/octet-stream;base64,')) {
+      toast.error('Invalid PDF format');
+      return;
+    }
+    
+    try {
+      setSelectedPdfUrl(pdfData);
+      setShowPdfModal(true);
+    } catch (error) {
+      console.error('Error setting PDF URL:', error);
+      toast.error('Failed to load PDF document');
+    }
+  };
+
+  const handleDownloadPdf = (pdfData: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = pdfData;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleUploadSignedDocument = (requestId: number) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.doc,.docx';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const fileData = ev.target?.result as string;
+          setUploadedSignedDocs(prev => ({
+            ...prev,
+            [requestId]: fileData
+          }));
+          toast.success(`Signed document uploaded for request ${requestId}`);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
+  };
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch all submitted event plans
+      const eventPlansResponse = await apiService.getEventPlans({
+        status: 'submitted'
+      });
+      
+      // Fetch signed letters by vice-chancellor to check which event plans have been approved
+      const signedLettersResponse = await apiService.getSignedLetters({
+        from_role: 'vice-chancellor'
+      });
+      
+      if (eventPlansResponse.success) {
+        let allEventPlans = eventPlansResponse.data || [];
+        
+        // Get event plan IDs that the VC has already approved
+        let approvedEventPlanIds: number[] = [];
+        if (signedLettersResponse.success && signedLettersResponse.data) {
+          approvedEventPlanIds = signedLettersResponse.data
+            .filter((letter: any) => letter.letter_type === 'approval' && letter.event_plan_id)
+            .map((letter: any) => parseInt(letter.event_plan_id));
+        }
+        
+        // Filter out event plans that the VC has already approved
+        const pendingEventPlans = allEventPlans.filter((eventPlan: any) => 
+          !approvedEventPlanIds.includes(eventPlan.id)
+        );
+        
+        setRequests(pendingEventPlans);
+      }
+
+      // Fetch approved event plans
+      const approvedEventPlansResponse = await apiService.getEventPlans({
+        status: 'approved'
+      });
+      
+      if (approvedEventPlansResponse.success) {
+        setApprovedEventPlans(approvedEventPlansResponse.data || []);
+      }
+
+      // Fetch rejected event plans
+      const rejectedEventPlansResponse = await apiService.getEventPlans({
+        status: 'rejected'
+      });
+      
+      if (rejectedEventPlansResponse.success) {
+        setRejectedEventPlans(rejectedEventPlansResponse.data || []);
+      }
+
+      // Set signed letters for the signed letters section
+      if (signedLettersResponse.success) {
+        setSignedLetters(signedLettersResponse.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Simulate notification
   React.useEffect(() => {
     if (requests.length > 0) {
       console.log(
-        `🔔 VC: You have a new approval request for ${requests[0].eventTitle}.`
+        `🔔 VC: You have a new approval request for ${requests[0].title}.`
       );
     }
   }, [requests]);
@@ -70,74 +220,92 @@ const ViceChancellorDashboard: React.FC = () => {
   // Statistics
   const stats = {
     pending: requests.length,
-    approved: signedLetters.filter((l) => l.status === "Sent to Admin").length,
-    rejected: 0, // For UI phase, not tracked
+    approved: signedLetters.filter((l) => l.letter_type === "approval" && l.status === "sent").length,
+    rejected: rejectedEventPlans.length,
   };
 
   // Handle Approve
-  const handleApprove = () => {
-    if (!signature) {
-      toast.error("Please upload your e-signature.");
-      return;
+  const handleApprove = async () => {
+    if (!selectedRequest) return;
+
+    setIsLoading(true);
+
+    try {
+      // Get the uploaded signed document for this request (optional)
+      const uploadedDocument = uploadedSignedDocs[selectedRequest.id];
+      
+      const response = await apiService.approveEventPlanAsViceChancellor(
+        selectedRequest.id,
+        {
+          comment: comment,
+          signed_document: uploadedDocument || null
+        }
+      );
+
+      if (response.success) {
+        toast.success("Event plan approved and signed letter sent to Super-Admin.");
+        
+        // Refresh data
+        await fetchData();
+        
+        // Close modal
+        setShowApproveModal(false);
+        setSelectedRequest(null);
+        setComment("");
+        setSignature(null);
+        
+        // Remove the uploaded document from state since it's been sent
+        if (uploadedDocument) {
+          setUploadedSignedDocs(prev => {
+            const newState = { ...prev };
+            delete newState[selectedRequest.id];
+            return newState;
+          });
+        }
+      } else {
+        toast.error(response.message || "Failed to approve event plan.");
+      }
+    } catch (error) {
+      console.error("Error approving event plan:", error);
+      toast.error("Failed to approve event plan. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-    // Simulate moving to signed letters
-    setSignedLetters([
-      ...signedLetters,
-      {
-        id: selectedRequest.id,
-        eventTitle: selectedRequest.eventTitle,
-        date: new Date().toISOString().slice(0, 10),
-        document: selectedRequest.document,
-        status: "Sent to Admin",
-      },
-    ]);
-    setRequests(requests.filter((r) => r.id !== selectedRequest.id));
-    setShowApproveModal(false);
-    setSignature(null);
-    setComment("");
-    toast.success("Request approved and sent to Admin.");
-    console.log(
-      `✅ Admin: VC approved event request ID#${selectedRequest.id}. Signed letter attached.`
-    );
-    
-    // Send notification to admin dashboard
-    const notificationData = {
-      eventName: selectedRequest.eventTitle,
-      authority: 'Vice Chancellor',
-      comment: comment || 'Event approved by Vice Chancellor. All academic requirements met.',
-      type: 'approval' as const
-    };
-    
-    // Simulate sending notification to admin
-    console.log(`📧 Notification sent to Admin Dashboard: ${notificationData.type} for ${notificationData.eventName} from ${notificationData.authority}`);
-    console.log(`Comment: ${notificationData.comment}`);
   };
 
   // Handle Reject
-  const handleReject = () => {
-    if (!rejectionComment.trim()) {
-      toast.error("Please provide a rejection comment.");
-      return;
+  const handleReject = async () => {
+    if (!selectedRequest) return;
+
+    setIsLoading(true);
+
+    try {
+      const response = await apiService.rejectEventPlanAsViceChancellor(
+        selectedRequest.id,
+        {
+          comment: rejectionComment
+        }
+      );
+
+      if (response.success) {
+        toast.success("Event plan rejected successfully.");
+        
+        // Refresh data
+        await fetchData();
+        
+        // Close modal
+        setShowRejectModal(false);
+        setSelectedRequest(null);
+        setRejectionComment("");
+      } else {
+        toast.error(response.message || "Failed to reject event plan.");
+      }
+    } catch (error) {
+      console.error("Error rejecting event plan:", error);
+      toast.error("Failed to reject event plan. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-    setRequests(requests.filter((r) => r.id !== selectedRequest.id));
-    setShowRejectModal(false);
-    setRejectionComment("");
-    toast("Request rejected and admin notified.");
-    console.log(
-      `❌ Admin: VC rejected event request ID#${selectedRequest.id}. Reason: ${rejectionComment}`
-    );
-    
-    // Send notification to admin dashboard
-    const notificationData = {
-      eventName: selectedRequest.eventTitle,
-      authority: 'Vice Chancellor',
-      comment: rejectionComment,
-      type: 'rejection' as const
-    };
-    
-    // Simulate sending notification to admin
-    console.log(`📧 Notification sent to Admin Dashboard: ${notificationData.type} for ${notificationData.eventName} from ${notificationData.authority}`);
-    console.log(`Comment: ${notificationData.comment}`);
   };
 
   // Handle signature upload
@@ -152,11 +320,11 @@ const ViceChancellorDashboard: React.FC = () => {
     }
   };
 
-  const { user } = useAuth();
   return (
     <div>
       <Layout>
-      <div className="relative min-h-screen w-full flex flex-col justify-center items-stretch" style={{ backgroundColor: '#bd7880' }}>
+        <div className="p-6">
+          <div className="relative min-h-screen w-full flex flex-col justify-center items-stretch" style={{ backgroundColor: '#bd7880' }}>
           <div className="relative z-10 space-y-8 animate-fade-in px-2 md:px-0 pt-0 pb-8">
             {/* Welcome Section at the very top */}
             <div className="w-full flex justify-center">
@@ -244,45 +412,64 @@ const ViceChancellorDashboard: React.FC = () => {
                           {requests.map((req) => (
                             <tr key={req.id} className="border-b border-gray-700 last:border-none">
                               <td className="py-2 px-4 text-white">{req.id}</td>
-                              <td className="py-2 px-4 text-white">{req.eventTitle}</td>
-                              <td className="py-2 px-4 text-white">{req.requestedBy}</td>
-                              <td className="py-2 px-4 text-white">{req.dateTime}</td>
-                              <td className="py-2 px-4 text-white">{req.venue}</td>
+                              <td className="py-2 px-4 text-white">{req.title}</td>
+                              <td className="py-2 px-4 text-white">{req.organizer}</td>
+                              <td className="py-2 px-4 text-white">{req.date} {req.time}</td>
+                              <td className="py-2 px-4 text-white">{req.type}</td>
                               <td className="py-2 px-4">
                                 <div className="flex flex-col gap-1 items-start">
-                                  <a
-                                    href={req.document}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-white underline text-sm hover:text-gray-200"
-                                  >
-                                    View PDF
-                                  </a>
-                                  <a
-                                    href={req.document}
-                                    download
-                                    className="text-blue-300 underline text-sm hover:text-blue-200"
-                                  >
-                                    Download PDF
-                                  </a>
-                                  <button
-                                    className="text-green-300 underline text-sm hover:text-green-200 text-left bg-transparent border-none p-0 cursor-pointer"
-                                    onClick={() => {
-                                      // Handle upload functionality
-                                      const input = document.createElement('input');
-                                      input.type = 'file';
-                                      input.accept = '.pdf';
-                                      input.onchange = (e) => {
-                                        const file = (e.target as HTMLInputElement).files?.[0];
-                                        if (file) {
-                                          toast.success(`PDF uploaded for request ${req.id}`);
-                                        }
-                                      };
-                                      input.click();
-                                    }}
-                                  >
-                                    Upload PDF
-                                  </button>
+                                  {/* Show uploaded approval documents */}
+                                  {req.approval_documents ? (
+                                    <div className="space-y-1">
+                                      {req.approval_documents.vc_approval && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-green-400 text-xs">Approval Letter</span>
+                                          <button
+                                            onClick={() => handleViewPdf(req.approval_documents.vc_approval)}
+                                            className="text-blue-300 hover:text-blue-200 text-xs underline"
+                                          >
+                                            View
+                                          </button>
+                                        </div>
+                                      )}
+                                      {!req.approval_documents.vc_approval && (
+                                        <span className="text-gray-400 text-xs">No VC approval letter uploaded</span>
+                                      )}
+                                    </div>
+                                  ) : loadingApprovalDocs.includes(req.id) ? (
+                                    <div className="flex items-center gap-2">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                      <span className="text-gray-400 text-xs">Loading...</span>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => loadApprovalDocuments(req.id)}
+                                      className="text-blue-300 hover:text-blue-200 text-xs underline"
+                                    >
+                                      Load Documents
+                                    </button>
+                                  )}
+                                  
+                                  {/* Upload VC signed document */}
+                                  <div className="space-y-1">
+                                    <button
+                                      className="text-green-300 underline text-sm hover:text-green-200 text-left bg-transparent border-none p-0 cursor-pointer"
+                                      onClick={() => handleUploadSignedDocument(req.id)}
+                                    >
+                                      Upload Signed Document
+                                    </button>
+                                    {uploadedSignedDocs[req.id] && (
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-green-400 text-xs">Signed Document</span>
+                                        <button
+                                          onClick={() => handleViewPdf(uploadedSignedDocs[req.id])}
+                                          className="text-blue-300 hover:text-blue-200 text-xs underline"
+                                        >
+                                          View
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
                               <td className="py-2 px-4 flex gap-2">
@@ -336,43 +523,20 @@ const ViceChancellorDashboard: React.FC = () => {
                         <tbody>
                           {signedLetters.map((letter) => (
                             <tr key={letter.id}>
-                              <td className="py-2 px-4 text-white">{letter.date}</td>
-                              <td className="py-2 px-4 text-white">{letter.eventTitle}</td>
+                              <td className="py-2 px-4 text-white">{new Date(letter.created_at).toLocaleDateString()}</td>
+                              <td className="py-2 px-4 text-white">{letter.event_title}</td>
                               <td className="py-2 px-4">
                                 <div className="flex flex-col gap-1 items-start">
-                                  <a
-                                    href={letter.document}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-white underline text-sm hover:text-gray-200"
-                                  >
-                                    View PDF
-                                  </a>
-                                  <a
-                                    href={letter.document}
-                                    download
-                                    className="text-blue-300 underline text-sm hover:text-blue-200"
-                                  >
-                                    Download PDF
-                                  </a>
-                                  <button
-                                    className="text-green-300 underline text-sm hover:text-green-200 text-left bg-transparent border-none p-0 cursor-pointer"
-                                    onClick={() => {
-                                      // Handle upload functionality
-                                      const input = document.createElement('input');
-                                      input.type = 'file';
-                                      input.accept = '.pdf';
-                                      input.onchange = (e) => {
-                                        const file = (e.target as HTMLInputElement).files?.[0];
-                                        if (file) {
-                                          toast.success(`PDF uploaded for letter ${letter.id}`);
-                                        }
-                                      };
-                                      input.click();
-                                    }}
-                                  >
-                                    Upload PDF
-                                  </button>
+                                  {letter.letter_content && letter.letter_content.trim() !== '' ? (
+                                    <button
+                                      onClick={() => handleViewPdf(letter.letter_content)}
+                                      className="text-blue-300 underline text-sm hover:text-blue-200 bg-transparent border-none p-0 cursor-pointer"
+                                    >
+                                      View PDF
+                                    </button>
+                                  ) : (
+                                    <span className="text-gray-400 text-sm">No document uploaded</span>
+                                  )}
                                 </div>
                               </td>
                               <td className="py-2 px-4">
@@ -404,6 +568,7 @@ const ViceChancellorDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+        </div>
       </Layout>
       {/* Approve Modal */}
       {showApproveModal && (
@@ -419,42 +584,66 @@ const ViceChancellorDashboard: React.FC = () => {
             <div className="mb-4">
               <span className="font-semibold text-white">Event:</span>
               <div className="border border-gray-600 rounded-md mt-2 p-2 bg-gray-800/60 text-white text-center text-lg">
-                {selectedRequest.eventTitle}
+                {selectedRequest?.title}
               </div>
               <div className="flex flex-col gap-1 mt-2">
-                <a
-                  href={selectedRequest.document}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-white underline text-sm hover:text-gray-200"
-                >
-                  View Full Document
-                </a>
-                <a
-                  href={selectedRequest.document}
-                  download
-                  className="text-blue-300 underline text-sm hover:text-blue-200"
-                >
-                  Download the document
-                </a>
-                <button
-                  className="text-green-300 underline text-sm hover:text-green-200 bg-transparent border-none p-0 cursor-pointer text-center w-fit mx-auto"
-                  onClick={() => {
-                    // Handle upload functionality
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = '.pdf,.doc,.docx';
-                    input.onchange = (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0];
-                      if (file) {
-                        toast.success(`Document uploaded for request ${selectedRequest.id}`);
-                      }
-                    };
-                    input.click();
-                  }}
-                >
-                  Upload the document
-                </button>
+                {selectedRequest?.approval_documents && (
+                  <div className="space-y-2">
+                    <span className="text-white text-sm font-medium">Uploaded Approval Document:</span>
+                    {selectedRequest.approval_documents.vc_approval && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-green-400 text-xs">✓ VC Approval Letter</span>
+                        <button
+                          onClick={() => handleViewPdf(selectedRequest.approval_documents.vc_approval)}
+                          className="text-blue-300 hover:text-blue-200 text-xs underline"
+                        >
+                          View
+                        </button>
+                      </div>
+                    )}
+                    {!selectedRequest.approval_documents.vc_approval && (
+                      <span className="text-gray-400 text-xs">No VC approval letter uploaded</span>
+                    )}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <span className="text-white text-sm font-medium">Signed Document :</span>
+                  <button
+                    className="text-green-300 underline text-sm hover:text-green-200 bg-transparent border-none p-0 cursor-pointer text-center w-fit mx-auto"
+                    onClick={() => {
+                      // Handle upload functionality
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = '.pdf,.doc,.docx';
+                      input.onchange = (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const fileData = ev.target?.result as string;
+                            setUploadedSignedDocs(prev => ({
+                              ...prev,
+                              [selectedRequest.id]: fileData
+                            }));
+                            toast.success(`Signed document uploaded for request ${selectedRequest.id}`);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      };
+                      input.click();
+                    }}
+                  >
+                    Upload Signed Document
+                  </button>
+                  {uploadedSignedDocs[selectedRequest?.id || 0] && (
+                    <button
+                      onClick={() => handleViewPdf(uploadedSignedDocs[selectedRequest?.id || 0])}
+                      className="text-blue-300 underline text-sm hover:text-blue-200 bg-transparent border-none p-0 cursor-pointer text-center w-fit mx-auto"
+                    >
+                      View
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
             <div className="mb-4">
@@ -466,34 +655,11 @@ const ViceChancellorDashboard: React.FC = () => {
                 onChange={(e) => setComment(e.target.value)}
               />
             </div>
-            <label className="block font-semibold mb-1 text-white">Add E-signature:</label>
-            <div className="border-2 border-dashed border-gray-600 rounded-md p-4 flex flex-col items-center bg-gray-800/60 hover:bg-gray-700 transition cursor-pointer">
-              <input
-                type="file"
-                accept="image/png, image/svg+xml"
-                className="hidden"
-                id="signature-upload"
-                onChange={handleSignatureUpload}
-              />
-              <label htmlFor="signature-upload" className="cursor-pointer text-white">
-                {signature ? (
-                  <img
-                    src={signature}
-                    alt="E-signature Preview"
-                    className="h-12 object-contain mx-auto"
-                  />
-                ) : (
-                  <>
-                    <span className="text-gray-300">Drag & drop or click to upload signature (PNG/SVG)</span>
-                  </>
-                )}
-              </label>
-            </div>
             <button
               className="bg-gray-700/80 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold w-full mt-6 transition-colors"
               onClick={handleApprove}
             >
-              Approve & Sign
+              Approve & Send to Super-Admin
             </button>
           </div>
         </div>
@@ -525,6 +691,26 @@ const ViceChancellorDashboard: React.FC = () => {
             >
               Reject
             </button>
+          </div>
+        </div>
+      )}
+      {/* PDF Viewer Modal */}
+      {showPdfModal && selectedPdfUrl && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-90 z-50">
+          <div className="bg-black rounded-lg shadow-xl p-6 w-full max-w-4xl h-full flex flex-col">
+            <button
+              className="absolute top-2 right-2 text-white hover:text-gray-300 text-2xl font-bold"
+              onClick={() => setShowPdfModal(false)}
+            >
+              ×
+            </button>
+            <div className="flex-1 flex items-center justify-center">
+              <iframe
+                src={selectedPdfUrl}
+                className="w-full h-full"
+                title="PDF Viewer"
+              />
+            </div>
           </div>
         </div>
       )}

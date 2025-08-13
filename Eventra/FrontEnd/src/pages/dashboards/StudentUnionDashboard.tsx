@@ -1,66 +1,337 @@
-import React, { useState } from "react";
-import DashboardNavbar from "@/components/DashboardNavbar";
-import Layout from "@/components/Layout";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import apiService from "../../services/api";
+import { toast } from "sonner";
+import Layout from "../../components/Layout";
 import { Calendar, Clock, Users, FileText } from "lucide-react";
 
-// Dummy data for pending requests (customize as needed)
-const dummyRequests = [
-  {
-    id: 204,
-    eventTitle: "Social Night 2025",
-    requestedBy: "Student Union",
-    dateTime: "2025-07-10 14:00",
-    venue: "Open Ground",
-    document: "/public/placeholder.pdf",
-    status: "Pending",
-  },
-  {
-    id: 205,
-    eventTitle: "Cyber Security Awareness Conference",
-    requestedBy: "Department of CSI",
-    dateTime: "2025-07-15 10:00",
-    venue: "Main Lecture Theatre",
-    document: "/public/placeholder.pdf",
-    status: "Pending",
-  },
-];
+interface EventPlan {
+  id: number;
+  title: string;
+  type: string;
+  organizer: string;
+  date: string;
+  time: string;
+  participants: number;
+  status: string;
+  current_stage: number;
+  facilities: any;
+  documents: any;
+  approval_documents?: {
+    vc_approval?: string;
+    administration_approval?: string;
+    warden_approval?: string;
+    student_union_approval?: string;
+  };
+  remarks: string;
+  user_name: string;
+  user_email: string;
+  created_at: string;
+  updated_at: string;
+}
 
-const dummySignedLetters = [
-  {
-    id: 201,
-    eventTitle: "CST Alumni Meetup",
-    date: "2025-06-20",
-    document: "/public/placeholder.pdf",
-    status: "Sent to Admin",
-  },
-  {
-    id: 202,
-    eventTitle: "Research Conference",
-    date: "2025-06-25",
-    document: "/public/placeholder.pdf",
-    status: "Pending",
-  },
-];
+interface SignedLetter {
+  id: number;
+  booking_id: number;
+  event_plan_id?: number;
+  from_role: string;
+  to_role: string;
+  letter_type: string;
+  letter_content: string;
+  signature_data: any;
+  status: string;
+  sent_at: string;
+  received_at: string;
+  event_title: string;
+  user_name: string;
+  created_at: string;
+  updated_at: string;
+}
 
 const StudentUnionDashboard: React.FC = () => {
-  const [requests, setRequests] = useState(dummyRequests);
-  const [activeTab, setActiveTab] = useState("pending");
+  const [requests, setRequests] = useState<EventPlan[]>([]);
+  const [signedLetters, setSignedLetters] = useState<SignedLetter[]>([]);
+  const [approvedEventPlans, setApprovedEventPlans] = useState<EventPlan[]>([]);
+  const [rejectedEventPlans, setRejectedEventPlans] = useState<EventPlan[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<EventPlan | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
-  const [approveComment, setApproveComment] = useState("");
-  const [rejectComment, setRejectComment] = useState("");
-  const [rejectError, setRejectError] = useState("");
-  const [signedLetters] = useState(dummySignedLetters);
+  const [comment, setComment] = useState("");
+  const [rejectionComment, setRejectionComment] = useState("");
   const [signature, setSignature] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingApprovalDocs, setLoadingApprovalDocs] = useState<number[]>([]);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [selectedPdfUrl, setSelectedPdfUrl] = useState<string | null>(null);
+  const [uploadedSignedDocs, setUploadedSignedDocs] = useState<{[key: number]: string}>({});
+  const { user } = useAuth();
 
-  // Statistics (customize as needed)
-  const stats = {
-    pending: requests.length,
-    approved: 1,
-    rejected: 0,
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Load approval documents for a specific event plan
+  const loadApprovalDocuments = async (eventPlanId: number) => {
+    try {
+      setLoadingApprovalDocs(prev => [...prev, eventPlanId]);
+      const response = await apiService.getEventPlanApprovalDocuments(eventPlanId);
+      
+      if (response.success) {
+        setRequests(prev => prev.map(plan => 
+          plan.id === eventPlanId 
+            ? { ...plan, approval_documents: response.data }
+            : plan
+        ));
+      }
+    } catch (error) {
+      console.error('Error loading approval documents:', error);
+    } finally {
+      setLoadingApprovalDocs(prev => prev.filter(id => id !== eventPlanId));
+    }
   };
 
+  const handleViewPdf = (pdfData: string) => {
+    console.log('PDF Data received:', pdfData ? pdfData.substring(0, 100) + '...' : 'null');
+    
+    if (!pdfData) {
+      toast.error('No PDF data available');
+      return;
+    }
+    
+    // Check if it's a valid data URL
+    if (!pdfData.startsWith('data:application/pdf;base64,') && !pdfData.startsWith('data:application/octet-stream;base64,')) {
+      toast.error('Invalid PDF format');
+      return;
+    }
+    
+    try {
+      setSelectedPdfUrl(pdfData);
+      setShowPdfModal(true);
+    } catch (error) {
+      console.error('Error setting PDF URL:', error);
+      toast.error('Failed to load PDF document');
+    }
+  };
+
+  const handleDownloadPdf = (pdfData: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = pdfData;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleUploadSignedDocument = (requestId: number) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.doc,.docx';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const fileData = ev.target?.result as string;
+          setUploadedSignedDocs(prev => ({
+            ...prev,
+            [requestId]: fileData
+          }));
+          toast.success(`Signed document uploaded for request ${requestId}`);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
+  };
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch all submitted event plans
+      const eventPlansResponse = await apiService.getEventPlans({
+        status: 'submitted'
+      });
+      
+      // Fetch signed letters by student-union to check which event plans have been approved
+      const signedLettersResponse = await apiService.getSignedLetters({
+        from_role: 'student-union'
+      });
+      
+      if (eventPlansResponse.success) {
+        let allEventPlans = eventPlansResponse.data || [];
+        
+        // Get event plan IDs that the Student Union has already approved
+        let approvedEventPlanIds: number[] = [];
+        if (signedLettersResponse.success && signedLettersResponse.data) {
+          approvedEventPlanIds = signedLettersResponse.data
+            .filter((letter: any) => letter.letter_type === 'approval' && letter.event_plan_id)
+            .map((letter: any) => parseInt(letter.event_plan_id));
+        }
+        
+        // Filter out event plans that the Student Union has already approved
+        const pendingEventPlans = allEventPlans.filter((eventPlan: any) => 
+          !approvedEventPlanIds.includes(eventPlan.id)
+        );
+        
+        setRequests(pendingEventPlans);
+      }
+
+      // Fetch approved event plans
+      const approvedEventPlansResponse = await apiService.getEventPlans({
+        status: 'approved'
+      });
+      
+      if (approvedEventPlansResponse.success) {
+        setApprovedEventPlans(approvedEventPlansResponse.data || []);
+      }
+
+      // Fetch rejected event plans
+      const rejectedEventPlansResponse = await apiService.getEventPlans({
+        status: 'rejected'
+      });
+      
+      if (rejectedEventPlansResponse.success) {
+        setRejectedEventPlans(rejectedEventPlansResponse.data || []);
+      }
+
+      // Set signed letters for the signed letters section
+      if (signedLettersResponse.success) {
+        setSignedLetters(signedLettersResponse.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Simulate notification and handle real-time updates
+  React.useEffect(() => {
+    if (requests.length > 0) {
+      console.log(
+        `🔔 Student Union: You have a new approval request for ${requests[0].title}.`
+      );
+      
+      // Simulate real-time notification to super-admin
+      console.log(
+        `📧 Notification sent to Super-Admin: New event plan '${requests[0].title}' awaiting Student Union review.`
+      );
+    }
+  }, [requests]);
+
+  // Handle real-time notification updates
+  useEffect(() => {
+    const notificationInterval = setInterval(() => {
+      if (requests.length > 0) {
+        // Simulate checking for new notifications
+        console.log(`🔄 Student Union Dashboard: Checking for new notifications...`);
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(notificationInterval);
+  }, [requests]);
+
+  // Statistics
+  const stats = {
+    pending: requests.length,
+    approved: signedLetters.filter((l) => l.letter_type === "approval" && l.status === "sent").length,
+    rejected: rejectedEventPlans.length,
+  };
+
+  // Handle Approve
+  const handleApprove = async () => {
+    if (!selectedRequest) return;
+
+    setIsLoading(true);
+
+    try {
+      // Get the uploaded signed document for this request (optional)
+      const uploadedDocument = uploadedSignedDocs[selectedRequest.id];
+      
+      const response = await apiService.approveEventPlanAsStudentUnion(
+        selectedRequest.id,
+        {
+          comment: comment,
+          signature_data: uploadedDocument || null
+        }
+      );
+
+      if (response.success) {
+        toast.success("Event plan approved and signed letter sent to Super-Admin.");
+        
+        // Show additional notification about super-admin being notified
+        console.log(`📧 Super-Admin notification sent for event plan: ${selectedRequest.title}`);
+        
+        // Refresh data
+        await fetchData();
+        
+        // Close modal
+        setShowApproveModal(false);
+        setSelectedRequest(null);
+        setComment("");
+        setSignature(null);
+        
+        // Remove the uploaded document from state since it's been sent
+        if (uploadedDocument) {
+          setUploadedSignedDocs(prev => {
+            const newState = { ...prev };
+            delete newState[selectedRequest.id];
+            return newState;
+          });
+        }
+      } else {
+        toast.error(response.message || "Failed to approve event plan.");
+      }
+    } catch (error) {
+      console.error("Error approving event plan:", error);
+      toast.error("Failed to approve event plan. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle Reject
+  const handleReject = async () => {
+    if (!selectedRequest) return;
+
+    setIsLoading(true);
+
+    try {
+      const response = await apiService.rejectEventPlanAsStudentUnion(
+        selectedRequest.id,
+        {
+          comment: rejectionComment
+        }
+      );
+
+      if (response.success) {
+        toast.success("Event plan rejected successfully.");
+        
+        // Show additional notification about super-admin being notified
+        console.log(`📧 Super-Admin notification sent for rejected event plan: ${selectedRequest.title}`);
+        
+        // Refresh data
+        await fetchData();
+        
+        // Close modal
+        setShowRejectModal(false);
+        setSelectedRequest(null);
+        setRejectionComment("");
+      } else {
+        toast.error(response.message || "Failed to reject event plan.");
+      }
+    } catch (error) {
+      console.error("Error rejecting event plan:", error);
+      toast.error("Failed to reject event plan. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle signature upload
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -72,57 +343,10 @@ const StudentUnionDashboard: React.FC = () => {
     }
   };
 
-  const handleApprove = () => {
-    if (!signature) {
-      alert('Please upload your e-signature.');
-      return;
-    }
-    setRequests(prev => prev.map(r => r.id === selectedRequest.id ? { ...r, status: "Approved", approveComment } : r));
-    setShowApproveModal(false);
-    setSelectedRequest(null);
-    setApproveComment("");
-    setSignature(null);
-    
-    // Send notification to admin dashboard
-    const notificationData = {
-      eventName: selectedRequest.eventTitle,
-      authority: 'Student Union',
-      comment: approveComment || 'Event approved by Student Union. Student participation confirmed.',
-      type: 'approval' as const
-    };
-    
-    // Simulate sending notification to admin
-    console.log(`📧 Notification sent to Admin Dashboard: ${notificationData.type} for ${notificationData.eventName} from ${notificationData.authority}`);
-    console.log(`Comment: ${notificationData.comment}`);
-  };
-
-  const handleReject = () => {
-    if (!rejectComment.trim()) {
-      setRejectError("Rejection comment is required.");
-      return;
-    }
-    setRequests(prev => prev.map(r => r.id === selectedRequest.id ? { ...r, status: "Rejected", rejectComment } : r));
-    setShowRejectModal(false);
-    setSelectedRequest(null);
-    setRejectComment("");
-    setRejectError("");
-    
-    // Send notification to admin dashboard
-    const notificationData = {
-      eventName: selectedRequest.eventTitle,
-      authority: 'Student Union',
-      comment: rejectComment,
-      type: 'rejection' as const
-    };
-    
-    // Simulate sending notification to admin
-    console.log(`📧 Notification sent to Admin Dashboard: ${notificationData.type} for ${notificationData.eventName} from ${notificationData.authority}`);
-    console.log(`Comment: ${notificationData.comment}`);
-  };
-
   return (
     <div>
       <Layout>
+        <div className="p-6">
       <div className="relative min-h-screen w-full flex flex-col justify-center items-stretch" style={{ backgroundColor: '#bd7880' }}>
           <div className="relative z-10 space-y-8 animate-fade-in px-2 md:px-0 pt-0 pb-8">
             {/* Welcome Section at the very top */}
@@ -131,10 +355,10 @@ const StudentUnionDashboard: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <h1 className="text-3xl font-extrabold mb-2">
-                      Welcome, Student Union!
+                      Welcome, {user?.name}!
                     </h1>
                     <p className="text-white text-lg font-semibold">
-                      Ready to organize and manage student events?
+                      Ready to review and approve student events?
                     </p>
                   </div>
                   <div className="hidden md:block">
@@ -187,15 +411,17 @@ const StudentUnionDashboard: React.FC = () => {
 
               {/* Main Content */}
               <div className="grid grid-cols-1 gap-8">
-                {/* Pending Requests + Approved Events (stacked) */}
+                {/* Pending Requests + Signed Letters (stacked) */}
                 <div className="space-y-8">
                   {/* Pending Requests */}
                   <div className="bg-black bg-opacity-40 rounded-xl shadow-none p-6 w-full max-w-none">
+                    <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold text-white">Pending Approval Requests</h2>
+                    </div>
                     <div>
                       <table className="w-full bg-transparent rounded-xl border border-gray-700 shadow-none">
                         <thead>
-                          <tr className="bg-gray-800 text-white">
+                          <tr className="bg-gray-800/70 text-white">
                             <th className="py-2 px-4">Request ID</th>
                             <th className="py-2 px-4">Event Title</th>
                             <th className="py-2 px-4">Requested By</th>
@@ -209,56 +435,85 @@ const StudentUnionDashboard: React.FC = () => {
                           {requests.map((req) => (
                             <tr key={req.id} className="border-b border-gray-700 last:border-none">
                               <td className="py-2 px-4 text-white">{req.id}</td>
-                              <td className="py-2 px-4 text-white">{req.eventTitle}</td>
-                              <td className="py-2 px-4 text-white">{req.requestedBy}</td>
-                              <td className="py-2 px-4 text-white">{req.dateTime}</td>
-                              <td className="py-2 px-4 text-white">{req.venue}</td>
+                              <td className="py-2 px-4 text-white">{req.title}</td>
+                              <td className="py-2 px-4 text-white">{req.organizer}</td>
+                              <td className="py-2 px-4 text-white">{req.date} {req.time}</td>
+                              <td className="py-2 px-4 text-white">{req.type}</td>
                               <td className="py-2 px-4">
                                 <div className="flex flex-col gap-1 items-start">
-                                <a
-                                  href={req.document}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                    className="text-white underline text-sm hover:text-gray-200"
-                                >
-                                  View PDF
-                                </a>
-                                  <a
-                                    href={req.document}
-                                    download
-                                    className="text-blue-300 underline text-sm hover:text-blue-200"
-                                  >
-                                    Download PDF
-                                  </a>
+                                  {/* Show uploaded approval documents */}
+                                  {req.approval_documents ? (
+                                    <div className="space-y-1">
+                                      {req.approval_documents.student_union_approval && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-green-400 text-xs">Approval Letter</span>
+                                          <button
+                                            onClick={() => handleViewPdf(req.approval_documents.student_union_approval)}
+                                            className="text-blue-300 hover:text-blue-200 text-xs underline"
+                                          >
+                                            View
+                                          </button>
+                                        </div>
+                                      )}
+                                      {!req.approval_documents.student_union_approval && (
+                                        <span className="text-gray-400 text-xs">No Student Union approval letter uploaded</span>
+                                      )}
+                                    </div>
+                                  ) : loadingApprovalDocs.includes(req.id) ? (
+                                    <div className="flex items-center gap-2">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                      <span className="text-gray-400 text-xs">Loading...</span>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => loadApprovalDocuments(req.id)}
+                                      className="text-blue-300 hover:text-blue-200 text-xs underline"
+                                    >
+                                      Load Documents
+                                    </button>
+                                  )}
+                                  
+                                  {/* Upload Student Union signed document */}
+                                  <div className="space-y-1">
                                   <button
                                     className="text-green-300 underline text-sm hover:text-green-200 text-left bg-transparent border-none p-0 cursor-pointer"
-                                    onClick={() => {
-                                      // Handle upload functionality
-                                      const input = document.createElement('input');
-                                      input.type = 'file';
-                                      input.accept = '.pdf';
-                                      input.onchange = (e) => {
-                                        const file = (e.target as HTMLInputElement).files?.[0];
-                                        if (file) {
-                                          alert(`PDF uploaded for request ${req.id}`);
-                                        }
-                                      };
-                                      input.click();
-                                    }}
-                                  >
-                                    Upload PDF
+                                      onClick={() => handleUploadSignedDocument(req.id)}
+                                    >
+                                      Upload Signed Document
+                                    </button>
+                                    {uploadedSignedDocs[req.id] && (
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-green-400 text-xs">Signed Document</span>
+                                        <button
+                                          onClick={() => handleViewPdf(uploadedSignedDocs[req.id])}
+                                          className="text-blue-300 hover:text-blue-200 text-xs underline"
+                                        >
+                                          View
                                   </button>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
                               <td className="py-2 px-4 flex gap-2">
                                 <button
                                   className="bg-green-900 bg-opacity-60 hover:bg-green-800 text-white px-3 py-1 rounded transition-colors"
-                                  onClick={() => { setSelectedRequest(req); setShowApproveModal(true); }}
-                                >Approve</button>
+                                  onClick={() => {
+                                    setSelectedRequest(req);
+                                    setShowApproveModal(true);
+                                  }}
+                                >
+                                  Approve
+                                </button>
                                 <button
                                   className="bg-red-900 bg-opacity-60 hover:bg-red-800 text-white px-3 py-1 rounded transition-colors"
-                                  onClick={() => { setSelectedRequest(req); setShowRejectModal(true); }}
-                                >Reject</button>
+                                  onClick={() => {
+                                    setSelectedRequest(req);
+                                    setShowRejectModal(true);
+                                  }}
+                                >
+                                  Reject
+                                </button>
                               </td>
                             </tr>
                           ))}
@@ -275,7 +530,9 @@ const StudentUnionDashboard: React.FC = () => {
                   </div>
                   {/* Signed Letters */}
                   <div className="bg-black bg-opacity-40 rounded-xl shadow-none p-6">
-                    <h2 className="text-xl font-bold text-white mb-6">Signed Letters</h2>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-bold text-white">Signed Letters</h2>
+                    </div>
                     <div className="overflow-x-auto">
                       <table className="min-w-full bg-transparent rounded-xl border border-gray-700 shadow-none">
                         <thead>
@@ -289,43 +546,20 @@ const StudentUnionDashboard: React.FC = () => {
                         <tbody>
                           {signedLetters.map((letter) => (
                             <tr key={letter.id}>
-                              <td className="py-2 px-4 text-white">{letter.date}</td>
-                              <td className="py-2 px-4 text-white">{letter.eventTitle}</td>
+                              <td className="py-2 px-4 text-white">{new Date(letter.created_at).toLocaleDateString()}</td>
+                              <td className="py-2 px-4 text-white">{letter.event_title}</td>
                               <td className="py-2 px-4">
                                 <div className="flex flex-col gap-1 items-start">
-                                <a
-                                  href={letter.document}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                    className="text-white underline text-sm hover:text-gray-200"
+                                  {letter.letter_content && letter.letter_content.trim() !== '' ? (
+                                    <button
+                                      onClick={() => handleViewPdf(letter.letter_content)}
+                                      className="text-blue-300 underline text-sm hover:text-blue-200 bg-transparent border-none p-0 cursor-pointer"
                                 >
                                   View PDF
-                                </a>
-                                  <a
-                                    href={letter.document}
-                                    download
-                                    className="text-blue-300 underline text-sm hover:text-blue-200"
-                                  >
-                                    Download PDF
-                                  </a>
-                                  <button
-                                    className="text-green-300 underline text-sm hover:text-green-200 text-left bg-transparent border-none p-0 cursor-pointer"
-                                    onClick={() => {
-                                      // Handle upload functionality
-                                      const input = document.createElement('input');
-                                      input.type = 'file';
-                                      input.accept = '.pdf';
-                                      input.onchange = (e) => {
-                                        const file = (e.target as HTMLInputElement).files?.[0];
-                                        if (file) {
-                                          alert(`PDF uploaded for letter ${letter.id}`);
-                                        }
-                                      };
-                                      input.click();
-                                    }}
-                                  >
-                                    Upload PDF
                                   </button>
+                                  ) : (
+                                    <span className="text-gray-400 text-sm">No document uploaded</span>
+                                  )}
                                 </div>
                               </td>
                               <td className="py-2 px-4">
@@ -351,6 +585,7 @@ const StudentUnionDashboard: React.FC = () => {
                         </tbody>
                       </table>
                     </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -359,35 +594,43 @@ const StudentUnionDashboard: React.FC = () => {
         </div>
       </Layout>
       {/* Approve Modal */}
-      {showApproveModal && selectedRequest && (
+      {showApproveModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-black bg-opacity-90 rounded-xl shadow-xl p-8 w-full max-w-lg relative">
             <button
               className="absolute top-2 right-2 text-white hover:text-gray-300 text-2xl font-bold"
               onClick={() => setShowApproveModal(false)}
-            >×</button>
+            >
+              ×
+            </button>
             <h3 className="text-lg font-bold mb-4 text-white">Approve Request</h3>
             <div className="mb-4">
               <span className="font-semibold text-white">Event:</span>
-              <div className="border border-gray-600 rounded-md mt-2 p-2 bg-gray-800/60 text-white">
-                {selectedRequest.eventTitle}
+              <div className="border border-gray-600 rounded-md mt-2 p-2 bg-gray-800/60 text-white text-center text-lg">
+                {selectedRequest?.title}
               </div>
               <div className="flex flex-col gap-1 mt-2">
-                <a
-                  href={selectedRequest.document}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-white underline text-sm hover:text-gray-200"
-                >
-                  View Full Document
-                </a>
-                <a
-                  href={selectedRequest.document}
-                  download
-                  className="text-blue-300 underline text-sm hover:text-blue-200"
-                >
-                  Download the document
-                </a>
+                {selectedRequest?.approval_documents && (
+                  <div className="space-y-2">
+                    <span className="text-white text-sm font-medium">Uploaded Approval Document:</span>
+                    {selectedRequest.approval_documents.student_union_approval && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-green-400 text-xs">✓ Student Union Approval Letter</span>
+                        <button
+                          onClick={() => handleViewPdf(selectedRequest.approval_documents.student_union_approval)}
+                          className="text-blue-300 hover:text-blue-200 text-xs underline"
+                        >
+                          View
+                        </button>
+                      </div>
+                    )}
+                    {!selectedRequest.approval_documents.student_union_approval && (
+                      <span className="text-gray-400 text-xs">No Student Union approval letter uploaded</span>
+                    )}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <span className="text-white text-sm font-medium">Signed Document :</span>
                 <button
                   className="text-green-300 underline text-sm hover:text-green-200 bg-transparent border-none p-0 cursor-pointer text-center w-fit mx-auto"
                   onClick={() => {
@@ -398,14 +641,32 @@ const StudentUnionDashboard: React.FC = () => {
                     input.onchange = (e) => {
                       const file = (e.target as HTMLInputElement).files?.[0];
                       if (file) {
-                        alert(`Document uploaded for request ${selectedRequest.id}`);
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const fileData = ev.target?.result as string;
+                            setUploadedSignedDocs(prev => ({
+                              ...prev,
+                              [selectedRequest.id]: fileData
+                            }));
+                            toast.success(`Signed document uploaded for request ${selectedRequest.id}`);
+                          };
+                          reader.readAsDataURL(file);
                       }
                     };
                     input.click();
                   }}
                 >
-                  Upload the document
+                    Upload Signed Document
+                  </button>
+                  {uploadedSignedDocs[selectedRequest?.id || 0] && (
+                    <button
+                      onClick={() => handleViewPdf(uploadedSignedDocs[selectedRequest?.id || 0])}
+                      className="text-blue-300 underline text-sm hover:text-blue-200 bg-transparent border-none p-0 cursor-pointer text-center w-fit mx-auto"
+                    >
+                      View
                 </button>
+                  )}
+                </div>
               </div>
             </div>
             <div className="mb-4">
@@ -413,60 +674,39 @@ const StudentUnionDashboard: React.FC = () => {
               <textarea
                 className="w-full border border-gray-600 rounded-md p-2 bg-gray-800/60 text-white placeholder-gray-300"
                 rows={2}
-                value={approveComment}
-                onChange={e => setApproveComment(e.target.value)}
-                placeholder="Add a comment (optional)"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
               />
-            </div>
-            <label className="block font-semibold mb-1 text-white">Add E-signature:</label>
-            <div className="border-2 border-dashed border-gray-600 rounded-md p-4 flex flex-col items-center bg-gray-800/60 hover:bg-gray-700 transition cursor-pointer">
-              <input
-                type="file"
-                accept="image/png, image/svg+xml"
-                className="hidden"
-                id="signature-upload"
-                onChange={handleSignatureUpload}
-              />
-              <label htmlFor="signature-upload" className="cursor-pointer text-white">
-                {signature ? (
-                  <img
-                    src={signature}
-                    alt="E-signature Preview"
-                    className="h-12 object-contain mx-auto"
-                  />
-                ) : (
-                  <span className="text-gray-300">Drag & drop or click to upload signature (PNG/SVG)</span>
-                )}
-              </label>
             </div>
             <button
               className="bg-gray-700/80 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold w-full mt-6 transition-colors"
               onClick={handleApprove}
             >
-              Approve & Sign
+              Approve & Send to Super-Admin
             </button>
           </div>
         </div>
       )}
       {/* Reject Modal */}
-      {showRejectModal && selectedRequest && (
+      {showRejectModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-black bg-opacity-90 rounded-xl shadow-xl p-8 w-full max-w-md relative">
             <button
               className="absolute top-2 right-2 text-white hover:text-gray-300 text-2xl font-bold"
               onClick={() => setShowRejectModal(false)}
-            >×</button>
+            >
+              ×
+            </button>
             <h3 className="text-lg font-bold mb-4 text-white">Reject Request</h3>
             <div className="mb-4">
               <label className="block font-semibold mb-1 text-white">Rejection Comment <span className="text-red-500">*</span></label>
               <textarea
                 className="w-full border border-gray-600 rounded-md p-2 bg-gray-800/60 text-white placeholder-gray-300"
                 rows={3}
-                value={rejectComment}
-                onChange={e => { setRejectComment(e.target.value); setRejectError(""); }}
+                value={rejectionComment}
+                onChange={(e) => setRejectionComment(e.target.value)}
                 placeholder="Please provide a reason for rejection"
               />
-              {rejectError && <div className="text-red-500 text-xs mt-1">{rejectError}</div>}
             </div>
             <button
               className="bg-gray-700/80 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold w-full transition-colors"
@@ -474,6 +714,26 @@ const StudentUnionDashboard: React.FC = () => {
             >
               Reject
             </button>
+          </div>
+        </div>
+      )}
+      {/* PDF Viewer Modal */}
+      {showPdfModal && selectedPdfUrl && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-90 z-50">
+          <div className="bg-black rounded-lg shadow-xl p-6 w-full max-w-4xl h-full flex flex-col">
+            <button
+              className="absolute top-2 right-2 text-white hover:text-gray-300 text-2xl font-bold"
+              onClick={() => setShowPdfModal(false)}
+            >
+              ×
+            </button>
+            <div className="flex-1 flex items-center justify-center">
+              <iframe
+                src={selectedPdfUrl}
+                className="w-full h-full"
+                title="PDF Viewer"
+              />
+            </div>
           </div>
         </div>
       )}

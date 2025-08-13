@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Mail } from 'lucide-react';
+import { apiService } from '../../services/api';
 
 const PasswordRecovery: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -29,11 +30,21 @@ const PasswordRecovery: React.FC = () => {
     
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const data = await apiService.forgotPassword(email);
+      
+      if (data.success) {
+        setShowSuccess(true);
+      } else {
+        // Handle error
+        setErrors({ email: data.message || 'Failed to send reset link' });
+      }
+    } catch (error) {
+      console.error('Error sending reset link:', error);
+      setErrors({ email: 'Network error. Please try again.' });
+    } finally {
       setIsLoading(false);
-      setShowSuccess(true);
-    }, 1500);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

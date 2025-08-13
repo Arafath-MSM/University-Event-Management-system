@@ -11,7 +11,6 @@ require_once 'models/Booking.php';
 
 echo "=== Eventra ESRS Backend Setup ===\n\n";
 
-// Test database connection
 echo "1. Testing database connection...\n";
 try {
     $database = new Database();
@@ -23,7 +22,6 @@ try {
     exit(1);
 }
 
-// Test user model
 echo "2. Testing user model...\n";
 try {
     $user = new User($db);
@@ -34,7 +32,6 @@ try {
     echo "✗ User model test failed: " . $e->getMessage() . "\n";
 }
 
-// Test venue model
 echo "3. Testing venue model...\n";
 try {
     $venue = new Venue($db);
@@ -45,7 +42,6 @@ try {
     echo "✗ Venue model test failed: " . $e->getMessage() . "\n";
 }
 
-// Test booking model
 echo "4. Testing booking model...\n";
 try {
     $booking = new Booking($db);
@@ -56,10 +52,8 @@ try {
     echo "✗ Booking model test failed: " . $e->getMessage() . "\n";
 }
 
-// Test API endpoints
 echo "5. Testing API endpoints...\n";
 
-// Test venues API
 $venues_url = "http://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . "/api/venues/read.php";
 $venues_response = file_get_contents($venues_url);
 if ($venues_response !== false) {
@@ -73,7 +67,6 @@ if ($venues_response !== false) {
     echo "✗ Venues API test failed\n";
 }
 
-// Test users API
 $users_url = "http://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . "/api/users/read.php";
 $users_response = file_get_contents($users_url);
 if ($users_response !== false) {
@@ -89,7 +82,6 @@ if ($users_response !== false) {
 
 echo "\n=== Setup Complete ===\n\n";
 
-// Display sample login credentials
 echo "Sample Login Credentials:\n";
 echo "Email: superadmin@university.edu\n";
 echo "Password: password123\n";

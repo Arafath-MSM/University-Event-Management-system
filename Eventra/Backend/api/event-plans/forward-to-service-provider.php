@@ -44,22 +44,18 @@ if (!empty($data->event_plan_id)) {
         exit();
     }
     
-    // Update event plan status to indicate it's been forwarded to Service Provider
     $eventPlan->status = 'forwarded_to_service_provider';
     $eventPlan->remarks = ($eventPlan->remarks ? $eventPlan->remarks . ' ' : '') . 'Forwarded to Service Provider for service approval.';
     
     if ($eventPlan->update()) {
-        // Create notification for the Service Provider (assuming user_id 2 is a service provider)
-        // In a real system, you might want to get all service provider users or have a specific service provider assigned
         $notification->createEventPlanNotification(
-            2, // Service Provider user ID (assuming it's 2)
+            2,
             'New Event Plan Forwarded for Service Approval',
             "Event plan '{$eventPlan->title}' by {$eventPlan->organizer} has been forwarded to you for service approval. Please review the service requirements and approve/reject accordingly.",
             'event_plan_forwarded_to_service_provider',
             $data->event_plan_id
         );
         
-        // Create notification for the event plan owner
         $notification->createEventPlanNotification(
             $eventPlan->user_id,
             'Event Plan Forwarded to Service Provider',
@@ -68,7 +64,6 @@ if (!empty($data->event_plan_id)) {
             $data->event_plan_id
         );
         
-        // Create notification for super-admin (confirmation)
         $notification->createEventPlanNotification(
             $payload['user_id'],
             'Event Plan Forwarded Successfully',

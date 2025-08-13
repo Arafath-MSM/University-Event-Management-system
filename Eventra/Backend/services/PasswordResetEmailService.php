@@ -14,9 +14,7 @@ class PasswordResetEmailService {
      */
     public function sendPasswordResetEmail($userEmail, $userName, $resetToken, $resetLink) {
         try {
-            // Check if we're using mock email service
             if (defined('USE_MOCK_EMAIL') && USE_MOCK_EMAIL) {
-                // Mock email service - log instead of sending
                 error_log("=== MOCK PASSWORD RESET EMAIL ===");
                 error_log("To: $userEmail");
                 error_log("User: $userName");
@@ -24,7 +22,7 @@ class PasswordResetEmailService {
                 error_log("Reset Link: $resetLink");
                 error_log("==================================");
                 
-                return true; // Simulate success
+                return true; 
             }
             
             $subject = "Password Reset Request - University Event Management System";
@@ -51,15 +49,13 @@ class PasswordResetEmailService {
      */
     public function sendPasswordResetConfirmationEmail($userEmail, $userName) {
         try {
-            // Check if we're using mock email service
             if (defined('USE_MOCK_EMAIL') && USE_MOCK_EMAIL) {
-                // Mock email service - log instead of sending
                 error_log("=== MOCK PASSWORD RESET CONFIRMATION EMAIL ===");
                 error_log("To: $userEmail");
                 error_log("User: $userName");
                 error_log("=============================================");
                 
-                return true; // Simulate success
+                return true; 
             }
             
             $subject = "Password Reset Successful - University Event Management System";

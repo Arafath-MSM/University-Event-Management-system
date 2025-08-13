@@ -14,7 +14,6 @@ $eventPlan = new EventPlan($db);
 $notification = new Notification($db);
 $userModel = new User($db);
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -24,11 +23,9 @@ if (!$payload) {
     exit();
 }
 
-// Get posted data
 $data = json_decode(file_get_contents("php://input"));
 
 if (!empty($data->title) && !empty($data->type) && !empty($data->organizer) && !empty($data->date)) {
-    // Set event plan properties
     $eventPlan->user_id = $payload['user_id'];
     $eventPlan->title = $data->title;
     $eventPlan->type = $data->type;
@@ -43,15 +40,12 @@ if (!empty($data->title) && !empty($data->type) && !empty($data->organizer) && !
     $eventPlan->approval_documents = $data->approval_documents ?? null;
     $eventPlan->remarks = $data->remarks ?? '';
 
-    // Create the event plan
     $event_plan_id = $eventPlan->create();
     
     if ($event_plan_id) {
-        // Get the created event plan data
         $eventPlan->id = $event_plan_id;
         $eventPlan->readOne();
         
-        // Create notification for the user
         $notification->createAdminNotification(
             $payload['user_id'],
             'Event Plan Submitted',
@@ -59,7 +53,6 @@ if (!empty($data->title) && !empty($data->type) && !empty($data->organizer) && !
             'event_plan_submitted'
         );
         
-        // Create notification for super-admin
         $superAdminUsers = $userModel->read('super-admin');
         
         if (!empty($superAdminUsers)) {
@@ -73,7 +66,6 @@ if (!empty($data->title) && !empty($data->type) && !empty($data->organizer) && !
             }
         }
         
-        // Create notification for Vice Chancellor
         $viceChancellorUsers = $userModel->read('vice-chancellor');
         
         if (!empty($viceChancellorUsers)) {
@@ -87,7 +79,6 @@ if (!empty($data->title) && !empty($data->type) && !empty($data->organizer) && !
             }
         }
         
-        // Set response code - 201 Created
         http_response_code(201);
         echo json_encode(array(
             "success" => true,

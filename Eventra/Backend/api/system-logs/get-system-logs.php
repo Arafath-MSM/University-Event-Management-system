@@ -14,14 +14,12 @@ try {
     $database = new Database();
     $conn = $database->getConnection();
     
-    // Get query parameters
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
     $type = isset($_GET['type']) ? $_GET['type'] : null;
     $user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
     $start_date = isset($_GET['start_date']) ? $_GET['start_date'] : null;
     $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : null;
     
-    // Build the query
     $query = "
         SELECT 
             al.id,
@@ -68,7 +66,6 @@ try {
     $stmt->execute($params);
     $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Format the logs for frontend display
     $formattedLogs = array_map(function($log) {
         return [
             'id' => $log['id'],
@@ -84,7 +81,6 @@ try {
         ];
     }, $logs);
     
-    // Get total count for pagination
     $countQuery = "SELECT COUNT(*) as total FROM activity_logs";
     $countStmt = $conn->prepare($countQuery);
     $countStmt->execute();

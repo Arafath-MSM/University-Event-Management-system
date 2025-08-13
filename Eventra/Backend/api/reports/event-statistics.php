@@ -8,11 +8,9 @@ require_once '../../utils/JWTUtil.php';
 
 header('Content-Type: application/json');
 
-// Get database connection
 $database = new Database();
 $db = $database->getConnection();
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -22,14 +20,12 @@ if (!$payload) {
     exit();
 }
 
-// Check if user is super-admin
 if ($payload['role'] !== 'super-admin') {
     http_response_code(403);
     echo json_encode(array("success" => false, "message" => "Access denied. Only super-admin can access reports."));
     exit();
 }
 
-// Get query parameters
 $startDate = $_GET['start_date'] ?? date('Y-m-01'); // Default to first day of current month
 $endDate = $_GET['end_date'] ?? date('Y-m-t'); // Default to last day of current month
 $eventType = $_GET['event_type'] ?? null;
@@ -38,10 +34,8 @@ $venueId = $_GET['venue_id'] ?? null;
 try {
     $response = array();
     
-    // 1. Overall Statistics
     $overallStats = array();
     
-    // Total events
     $query = "SELECT COUNT(*) as total FROM event_plans WHERE DATE(created_at) BETWEEN ? AND ?";
     $params = [$startDate, $endDate];
     
@@ -54,7 +48,6 @@ try {
     $stmt->execute($params);
     $overallStats['total_events'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
     
-    // Total bookings
     $query = "SELECT COUNT(*) as total FROM bookings WHERE DATE(created_at) BETWEEN ? AND ?";
     $params = [$startDate, $endDate];
     
@@ -67,7 +60,6 @@ try {
     $stmt->execute($params);
     $overallStats['total_bookings'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
     
-    // Total participants (using actual participants column)
     $query = "SELECT SUM(participants) as total FROM event_plans WHERE DATE(created_at) BETWEEN ? AND ?";
     $params = [$startDate, $endDate];
     
@@ -80,11 +72,9 @@ try {
     $stmt->execute($params);
     $overallStats['total_participants'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
     
-    // Average participants per event (using count as fallback)
     $overallStats['avg_participants'] = $overallStats['total_events'] > 0 ? 
         round($overallStats['total_participants'] / $overallStats['total_events'], 1) : 0;
     
-    // 2. Event Status Distribution
     $statusQuery = "SELECT status, COUNT(*) as count FROM event_plans WHERE DATE(created_at) BETWEEN ? AND ?";
     $params = [$startDate, $endDate];
     
@@ -98,7 +88,6 @@ try {
     $stmt->execute($params);
     $overallStats['status_distribution'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 3. Event Type Distribution (using actual 'type' column)
     $typeQuery = "SELECT ep.type as event_type, COUNT(*) as count FROM event_plans ep WHERE DATE(ep.created_at) BETWEEN ? AND ?";
     $params = [$startDate, $endDate];
     
@@ -112,7 +101,6 @@ try {
     $stmt->execute($params);
     $overallStats['type_distribution'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 4. Event Type Distribution (using actual 'type' column)
     $typeQuery = "
         SELECT 
             ep.type as event_type,
@@ -127,7 +115,6 @@ try {
     $stmt->execute([$startDate, $endDate]);
     $overallStats['type_distribution'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 5. Monthly Trend (last 12 months)
     $trendQuery = "
         SELECT 
             DATE_FORMAT(created_at, '%Y-%m') as month,
@@ -143,7 +130,6 @@ try {
     $stmt->execute();
     $overallStats['monthly_trend'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 6. Top Events by Title
     $topEventsQuery = "
         SELECT 
             title,
@@ -167,7 +153,6 @@ try {
     $stmt->execute($params);
     $overallStats['top_events'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 7. Approval Statistics
     $approvalQuery = "
         SELECT 
             'pending' as status,

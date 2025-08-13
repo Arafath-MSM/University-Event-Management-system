@@ -10,7 +10,6 @@ $database = new Database();
 $db = $database->getConnection();
 $signedLetter = new SignedLetter($db);
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -20,7 +19,6 @@ if (!$payload) {
     exit();
 }
 
-// Get query parameters
 $booking_id = isset($_GET['booking_id']) ? (int)$_GET['booking_id'] : null;
 $event_plan_id = isset($_GET['event_plan_id']) ? (int)$_GET['event_plan_id'] : null;
 $from_role = isset($_GET['from_role']) ? $_GET['from_role'] : null;

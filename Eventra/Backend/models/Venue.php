@@ -23,7 +23,6 @@ class Venue {
         $this->conn = $db;
     }
 
-    // Create new venue
     public function create() {
         $query = "INSERT INTO " . $this->table_name . "
                 SET
@@ -37,7 +36,6 @@ class Venue {
 
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize inputs
         $this->name = htmlspecialchars($this->name ?? '');
         $this->location = htmlspecialchars($this->location ?? '');
         $this->type = htmlspecialchars($this->type ?? '');
@@ -45,7 +43,6 @@ class Venue {
         $this->restrictions = htmlspecialchars($this->restrictions ?? '');
         $this->images = htmlspecialchars($this->images ?? '');
 
-        // Bind values
         $stmt->bindParam(":name", $this->name);
         $stmt->bindParam(":capacity", $this->capacity);
         $stmt->bindParam(":location", $this->location);
@@ -60,7 +57,6 @@ class Venue {
         return false;
     }
 
-    // Read all venues
     public function read($search = null, $type = null, $min_capacity = null) {
         $query = "SELECT * FROM " . $this->table_name;
         $conditions = [];
@@ -90,7 +86,6 @@ class Venue {
         $query .= " ORDER BY created_at DESC";
         $stmt = $this->conn->prepare($query);
 
-        // Bind parameters
         foreach ($params as $index => $param) {
             $stmt->bindParam($index + 1, $param);
         }
@@ -99,7 +94,6 @@ class Venue {
         return $stmt;
     }
 
-    // Read single venue
     public function readOne() {
         $query = "SELECT * FROM " . $this->table_name . " WHERE id = ? LIMIT 0,1";
         $stmt = $this->conn->prepare($query);
@@ -123,7 +117,6 @@ class Venue {
         return false;
     }
 
-    // Update venue
     public function update() {
         $query = "UPDATE " . $this->table_name . "
                 SET
@@ -138,7 +131,6 @@ class Venue {
 
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize inputs
         $this->name = htmlspecialchars($this->name ?? '');
         $this->location = htmlspecialchars($this->location ?? '');
         $this->type = htmlspecialchars($this->type ?? '');
@@ -146,7 +138,6 @@ class Venue {
         $this->restrictions = htmlspecialchars($this->restrictions ?? '');
         $this->images = htmlspecialchars($this->images ?? '');
 
-        // Bind values
         $stmt->bindParam(":name", $this->name);
         $stmt->bindParam(":capacity", $this->capacity);
         $stmt->bindParam(":location", $this->location);
@@ -162,7 +153,6 @@ class Venue {
         return false;
     }
 
-    // Delete venue
     public function delete() {
         $query = "DELETE FROM " . $this->table_name . " WHERE id = ?";
         $stmt = $this->conn->prepare($query);
@@ -174,7 +164,6 @@ class Venue {
         return false;
     }
 
-    // Check if venue is available for a specific date and time
     public function isAvailable($date, $time) {
         $query = "SELECT COUNT(*) as count FROM bookings 
                   WHERE venue_id = ? AND date = ? AND time = ? AND status != 'rejected'";

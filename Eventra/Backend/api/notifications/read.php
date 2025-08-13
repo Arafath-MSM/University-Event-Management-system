@@ -9,14 +9,11 @@ require_once '../../config/database.php';
 require_once '../../models/Notification.php';
 require_once '../../utils/JWTUtil.php';
 
-// Get database connection
 $database = new Database();
 $db = $database->getConnection();
 
-// Initialize notification object
 $notification = new Notification($db);
 
-// Get user ID from token
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -31,16 +28,13 @@ if (!$payload) {
 
 $user_id = $payload['user_id'];
 
-// Get query parameters
 $status = $_GET['status'] ?? null;
 $type = $_GET['type'] ?? null;
 $limit = $_GET['limit'] ?? null;
 
-// Debug: Log the user_id and status being used
 error_log("Notifications API - User ID: " . $user_id . ", Status: " . ($status ?? 'null'));
 
 try {
-    // Read notifications for the user
     $stmt = $notification->read($user_id, $status, $type, $limit);
     $notifications = [];
     
@@ -61,7 +55,6 @@ try {
         );
     }
     
-    // Set response code - 200 OK
     http_response_code(200);
     echo json_encode(array(
         "success" => true,
@@ -70,7 +63,6 @@ try {
     ));
     
 } catch (Exception $e) {
-    // Set response code - 500 Internal Server Error
     http_response_code(500);
     echo json_encode(array(
         "success" => false,

@@ -7,7 +7,6 @@ try {
     
     echo "🔧 Force updating status field...\n\n";
     
-    // Try updating each record individually by ID
     $recordIds = [32, 33, 34, 35, 36];
     
     foreach ($recordIds as $id) {

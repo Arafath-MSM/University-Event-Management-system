@@ -1,8 +1,6 @@
--- Create database with proper charset
 CREATE DATABASE IF NOT EXISTS eventra_esrs CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE eventra_esrs;
 
--- Users table
 CREATE TABLE users (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
@@ -23,7 +21,6 @@ CREATE TABLE users (
     INDEX idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Password reset tokens
 CREATE TABLE password_reset_tokens (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
@@ -35,7 +32,6 @@ CREATE TABLE password_reset_tokens (
     INDEX idx_expires_at (expires_at)
 );
 
--- User sessions
 CREATE TABLE user_sessions (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
@@ -48,7 +44,6 @@ CREATE TABLE user_sessions (
     INDEX idx_expires_at (expires_at)
 );
 
--- Email verification tokens
 CREATE TABLE email_verification_tokens (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
@@ -60,7 +55,6 @@ CREATE TABLE email_verification_tokens (
     INDEX idx_expires_at (expires_at)
 );
 
--- Venues
 CREATE TABLE venues (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
@@ -77,7 +71,6 @@ CREATE TABLE venues (
     INDEX idx_capacity (capacity)
 );
 
--- Bookings
 CREATE TABLE bookings (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
@@ -106,7 +99,6 @@ CREATE TABLE bookings (
     INDEX idx_venue_id (venue_id)
 );
 
--- Event Plans table
 CREATE TABLE event_plans (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
@@ -131,7 +123,6 @@ CREATE TABLE event_plans (
     INDEX idx_date (date)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- Event plan approvals
 CREATE TABLE event_plan_approvals (
     id INT PRIMARY KEY AUTO_INCREMENT,
     event_plan_id INT NOT NULL,
@@ -149,7 +140,6 @@ CREATE TABLE event_plan_approvals (
     INDEX idx_status (status)
 );
 
--- Service requests
 CREATE TABLE service_requests (
     id INT PRIMARY KEY AUTO_INCREMENT,
     event_name VARCHAR(255) NOT NULL,
@@ -174,7 +164,6 @@ CREATE TABLE service_requests (
     INDEX idx_date_time (date_time)
 );
 
--- Notifications table (for all notification types)
 CREATE TABLE notifications (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
@@ -196,7 +185,6 @@ CREATE TABLE notifications (
     INDEX idx_created_at (created_at)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- Signed Letters table (for tracking signed documents)
 CREATE TABLE signed_letters (
     id INT PRIMARY KEY AUTO_INCREMENT,
     booking_id INT NOT NULL,
@@ -216,7 +204,6 @@ CREATE TABLE signed_letters (
     INDEX idx_status (status)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- Activity logs
 CREATE TABLE activity_logs (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NULL,
@@ -234,7 +221,6 @@ CREATE TABLE activity_logs (
     INDEX idx_created_at (created_at)
 );
 
--- Reports
 CREATE TABLE reports (
     id INT PRIMARY KEY AUTO_INCREMENT,
     type VARCHAR(100) NOT NULL,
@@ -247,7 +233,6 @@ CREATE TABLE reports (
     INDEX idx_created_at (created_at)
 );
 
--- Events
 CREATE TABLE events (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
@@ -266,7 +251,6 @@ CREATE TABLE events (
     INDEX idx_venue_id (venue_id)
 );
 
--- Event feedback
 CREATE TABLE event_feedback (
     id INT PRIMARY KEY AUTO_INCREMENT,
     event_id INT NOT NULL,
@@ -279,30 +263,25 @@ CREATE TABLE event_feedback (
     INDEX idx_rating (rating)
 );
 
--- Super admin
 INSERT INTO users (name, email, password_hash, role, status, is_email_verified) 
 VALUES ('Super Administrator', 'superadmin@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'super-admin', 'active', TRUE);
 
--- Venues
 INSERT INTO venues (name, capacity, location, type, availability, restrictions, images) VALUES
 ('E Block Main Auditorium', 500, 'Academic Block E', 'Auditorium', 'Available', 'No food and drinks allowed', '["/E1.jpg"]'),
 ('Technology Lecture Theater 1', 250, 'Technology Building', 'Lecture Theater', 'Available', 'Professional events only', '["/Tecno.jpg"]'),
 ('Open Ground', 1000, 'Campus Premises', 'Outdoor', 'Available', 'Weather dependent', '["/Ground.jpg"]'),
 ('Namunukula Open Air Theater', 700, 'Campus Center', 'Outdoor', 'Available', 'Weather dependent', '["/Open Air Theater.jpg"]');
 
--- Service providers
 INSERT INTO users (name, email, password_hash, role, service_type, status, is_email_verified) VALUES
 ('Sound Pro', 'soundpro@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'service-provider', 'Sound System', 'active', TRUE),
 ('UvaRayon Media', 'uvarayonmedia@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'service-provider', 'Media', 'active', TRUE);
 
--- Authority users
 INSERT INTO users (name, email, password_hash, role, status, is_email_verified) VALUES
 ('Vice Chancellor', 'vicechancellor@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'vice-chancellor', 'active', TRUE),
 ('Administration of UWU', 'administrationuwu@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'administration', 'active', TRUE),
 ('Student Union', 'studentunion@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'student-union', 'active', TRUE),
 ('Warden', 'warden@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'warden', 'active', TRUE);
 
--- Sample students/faculty
 INSERT INTO users (name, email, password_hash, role, department, status, is_email_verified) VALUES
 ('Amal', 'amal@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'student', 'Computer Science', 'active', TRUE),
 ('FAS', 'fas@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'faculty', 'Computer Science and Informatics', 'active', TRUE);

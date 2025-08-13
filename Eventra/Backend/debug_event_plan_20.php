@@ -35,7 +35,6 @@ try {
     
     echo "2. Testing getSignedLetters query logic...\n";
     
-    // This is the exact query from getSignedLetters function
     $testQuery = "SELECT 
                     sl.letter_content,
                     sl.letter_type,
@@ -62,7 +61,6 @@ try {
     } else {
         echo "   ❌ No results found with current query\n";
         
-        // Let's check what values we actually have
         echo "\n3. Checking actual values in table...\n";
         
         $checkQuery = "SELECT DISTINCT letter_type, status FROM signed_letters WHERE event_plan_id = ?";

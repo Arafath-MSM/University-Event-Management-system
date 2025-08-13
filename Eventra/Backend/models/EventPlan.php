@@ -29,7 +29,6 @@ class EventPlan {
         $this->conn = $db;
     }
 
-    // Create new event plan
     public function create() {
         $query = "INSERT INTO " . $this->table_name . "
                 SET
@@ -49,7 +48,6 @@ class EventPlan {
 
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize inputs
         $this->title = htmlspecialchars($this->title ?? '');
         $this->organizer = htmlspecialchars($this->organizer ?? '');
         $this->remarks = htmlspecialchars($this->remarks ?? '');
@@ -57,7 +55,6 @@ class EventPlan {
         $this->documents = $this->documents ? json_encode($this->documents) : null;
         $this->approval_documents = $this->approval_documents ? json_encode($this->approval_documents) : null;
 
-        // Bind values
         $stmt->bindParam(":user_id", $this->user_id);
         $stmt->bindParam(":title", $this->title);
         $stmt->bindParam(":type", $this->type);
@@ -78,7 +75,6 @@ class EventPlan {
         return false;
     }
 
-    // Read event plans
     public function read($user_id = null, $status = null, $type = null, $search = null) {
         $query = "SELECT ep.id, ep.user_id, ep.title, ep.type, ep.organizer, ep.date, ep.time, 
                          ep.participants, ep.status, ep.current_stage, ep.facilities, ep.documents, 
@@ -117,7 +113,6 @@ class EventPlan {
 
         $stmt = $this->conn->prepare($query);
 
-        // Bind parameters using named parameters
         foreach ($params as $key => $value) {
             $stmt->bindValue($key, $value);
         }
@@ -126,7 +121,6 @@ class EventPlan {
         return $stmt;
     }
 
-    // Get approval documents for a specific event plan
     public function getApprovalDocuments($event_plan_id) {
         $query = "SELECT approval_documents FROM " . $this->table_name . " WHERE id = ?";
         $stmt = $this->conn->prepare($query);
@@ -137,7 +131,6 @@ class EventPlan {
         return $row ? $row['approval_documents'] : null;
     }
 
-    // Read single event plan
     public function readOne() {
         $query = "SELECT ep.*, u.name as user_name, u.email as user_email 
                   FROM " . $this->table_name . " ep
@@ -171,7 +164,6 @@ class EventPlan {
         return false;
     }
 
-    // Update event plan
     public function update() {
         $query = "UPDATE " . $this->table_name . "
                 SET
@@ -191,7 +183,6 @@ class EventPlan {
 
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize inputs
         $this->title = htmlspecialchars($this->title ?? '');
         $this->organizer = htmlspecialchars($this->organizer ?? '');
         $this->remarks = htmlspecialchars($this->remarks ?? '');
@@ -199,7 +190,6 @@ class EventPlan {
         $this->documents = $this->documents ? json_encode($this->documents) : null;
         $this->approval_documents = $this->approval_documents ? json_encode($this->approval_documents) : null;
 
-        // Bind values
         $stmt->bindParam(":title", $this->title);
         $stmt->bindParam(":type", $this->type);
         $stmt->bindParam(":organizer", $this->organizer);
@@ -220,7 +210,6 @@ class EventPlan {
         return false;
     }
 
-    // Delete event plan
     public function delete() {
         $query = "DELETE FROM " . $this->table_name . " WHERE id = ?";
         $stmt = $this->conn->prepare($query);

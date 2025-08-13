@@ -8,11 +8,9 @@ require_once '../../utils/JWTUtil.php';
 
 header('Content-Type: application/json');
 
-// Get database connection
 $database = new Database();
 $db = $database->getConnection();
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -22,14 +20,12 @@ if (!$payload) {
     exit();
 }
 
-// Check if user is super-admin
 if ($payload['role'] !== 'super-admin') {
     http_response_code(403);
     echo json_encode(array("success" => false, "message" => "Access denied. Only super-admin can access reports."));
     exit();
 }
 
-// Get query parameters
 $startDate = $_GET['start_date'] ?? date('Y-m-01');
 $endDate = $_GET['end_date'] ?? date('Y-m-t');
 $userRole = $_GET['user_role'] ?? null;
@@ -37,31 +33,25 @@ $userRole = $_GET['user_role'] ?? null;
 try {
     $response = array();
     
-    // 1. Overall User Statistics
     $overallStats = array();
     
-    // Total users
     $stmt = $db->prepare("SELECT COUNT(*) as total FROM users");
     $stmt->execute();
     $overallStats['total_users'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
     
-    // Active users
     $stmt = $db->prepare("SELECT COUNT(*) as total FROM users WHERE status = 'active'");
     $stmt->execute();
     $overallStats['active_users'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
     
-    // New users in date range
     $stmt = $db->prepare("SELECT COUNT(*) as total FROM users WHERE DATE(created_at) BETWEEN ? AND ?");
     $stmt->execute([$startDate, $endDate]);
     $overallStats['new_users'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
     
-    // 2. User Role Distribution
     $roleQuery = "SELECT role, COUNT(*) as count FROM users GROUP BY role ORDER BY count DESC";
     $stmt = $db->prepare($roleQuery);
     $stmt->execute();
     $overallStats['role_distribution'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 3. User Activity Statistics
     $activityQuery = "
         SELECT 
             u.id,
@@ -86,14 +76,12 @@ try {
     $stmt->execute([$startDate, $endDate, $startDate, $endDate]);
     $userActivity = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Calculate activity scores
     foreach ($userActivity as &$user) {
         $user['activity_score'] = ($user['event_plans_created'] * 10) + ($user['bookings_made'] * 5);
         $user['engagement_level'] = $user['activity_score'] >= 50 ? 'High' : ($user['activity_score'] >= 20 ? 'Medium' : 'Low');
         $user['days_since_created'] = round((time() - strtotime($user['created_at'])) / (24 * 60 * 60));
     }
     
-    // 4. Top Active Users
     $topUsersQuery = "
         SELECT 
             u.name,
@@ -114,7 +102,6 @@ try {
     $stmt->execute([$startDate, $endDate, $startDate, $endDate]);
     $topUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 5. User Growth Trends
     $growthQuery = "
         SELECT 
             DATE_FORMAT(created_at, '%Y-%m') as month,
@@ -130,7 +117,6 @@ try {
     $stmt->execute();
     $userGrowth = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 6. User Engagement by Role
     $engagementQuery = "
         SELECT 
             u.role,
@@ -150,7 +136,6 @@ try {
     $stmt->execute([$startDate, $endDate, $startDate, $endDate]);
     $roleEngagement = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 7. User Status Analysis
     $statusQuery = "
         SELECT 
             status,
@@ -165,7 +150,6 @@ try {
     $stmt->execute();
     $statusAnalysis = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 8. Faculty/Department Analysis (if applicable)
     $facultyQuery = "
         SELECT 
             faculty,

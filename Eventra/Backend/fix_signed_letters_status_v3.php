@@ -10,8 +10,6 @@ try {
     
     echo "1. Fixing existing records with NULL status...\n";
     
-    // Update all records for event plan 20 to have status = 'signed'
-    // This time we handle NULL values specifically
     $updateQuery = "UPDATE signed_letters SET status = 'signed' WHERE event_plan_id = 20 AND status IS NULL";
     $stmt = $db->prepare($updateQuery);
     $stmt->execute();
@@ -21,7 +19,6 @@ try {
     
     echo "\n2. Verifying the fix...\n";
     
-    // Check the current status of all records
     $checkQuery = "SELECT id, from_role, status FROM signed_letters WHERE event_plan_id = 20";
     $stmt = $db->prepare($checkQuery);
     $stmt->execute();
@@ -34,7 +31,6 @@ try {
     
     echo "\n3. Testing getSignedLetters query...\n";
     
-    // Test the exact query from getSignedLetters function
     $testQuery = "SELECT 
                     sl.letter_content,
                     sl.letter_type,
@@ -63,7 +59,6 @@ try {
     
     echo "\n4. Testing the complete flow...\n";
     
-    // Let's also test what getSignedLetters would return
     $completeQuery = "SELECT 
                         sl.letter_content,
                         sl.letter_type,

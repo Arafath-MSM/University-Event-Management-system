@@ -16,7 +16,6 @@ $signedLetter = new SignedLetter($db);
 $notification = new Notification($db);
 $userModel = new User($db);
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -26,7 +25,6 @@ if (!$payload) {
     exit();
 }
 
-// Check if user is super-admin
 if ($payload['role'] !== 'super-admin') {
     http_response_code(403);
     echo json_encode(array("success" => false, "message" => "Access denied. Only Super Admin can send letters."));
@@ -50,7 +48,6 @@ if (!empty($data->event_plan_id)) {
         exit();
     }
     
-    // Define the 4 authorities
     $authorities = [
         'vice-chancellor' => 'Vice Chancellor',
         'warden' => 'Warden',
@@ -62,8 +59,7 @@ if (!empty($data->event_plan_id)) {
     $errors = [];
     
     foreach ($authorities as $role => $title) {
-        // Create signed letter for each authority
-        $signedLetter->booking_id = $eventPlan->id; // Using event_plan_id as booking_id
+        $signedLetter->booking_id = $eventPlan->id;
         $signedLetter->from_role = 'super-admin';
         $signedLetter->to_role = $role;
         $signedLetter->letter_type = 'approval';
@@ -75,7 +71,6 @@ if (!empty($data->event_plan_id)) {
             $signedLetter->markAsSent();
             $sentLetters[] = $role;
             
-            // Create notification for the authority
             $authorityUsers = $userModel->read($role);
             if (!empty($authorityUsers)) {
                 foreach ($authorityUsers as $authorityUser) {
@@ -92,11 +87,9 @@ if (!empty($data->event_plan_id)) {
         }
     }
     
-    // Update event plan status to indicate letters sent
     $eventPlan->current_stage = 2;
     $eventPlan->update();
     
-    // Create notification for the event plan owner
     $notification->createAdminNotification(
         $eventPlan->user_id,
         'Letters Sent',
@@ -104,7 +97,6 @@ if (!empty($data->event_plan_id)) {
         'event_plan_submitted'
     );
     
-    // Create notification for super-admin
     $notification->createAdminNotification(
         $payload['user_id'],
         'Letters Sent Successfully',
@@ -124,7 +116,7 @@ if (!empty($data->event_plan_id)) {
             )
         ));
     } else {
-        http_response_code(207); // Multi-status
+        http_response_code(207);
         echo json_encode(array(
             "success" => false,
             "message" => "Some letters failed to send",

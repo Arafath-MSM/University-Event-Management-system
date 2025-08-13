@@ -53,7 +53,6 @@ const Login: React.FC = () => {
       const success = await login(formData.email, formData.password);
       console.log('Login result:', success);
       if (success) {
-        // Redirect to dashboard - role will be determined by the backend
         navigate('/dashboard');
       } else {
         console.log('Login failed - invalid credentials');

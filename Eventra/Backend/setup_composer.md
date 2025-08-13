@@ -40,7 +40,6 @@ The system is currently using a **Mock Email Service** because PHPMailer depende
 ### Step 3: Enable Real Email Service
 1. **Edit `config/email.php`**:
    ```php
-   // Change this line:
    define('USE_MOCK_EMAIL', false);
    ```
 

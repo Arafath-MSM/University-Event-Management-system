@@ -10,18 +10,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../../config/database.php';
 
-// Initialize database connection
 $database = new Database();
 $conn = $database->getConnection();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        // Check if file was uploaded
         if (!isset($_FILES['signedLetter']) || $_FILES['signedLetter']['error'] !== UPLOAD_ERR_OK) {
             throw new Exception('No file uploaded or upload error occurred');
         }
 
-        // Get form data
         $eventPlanId = $_POST['eventPlanId'] ?? null;
         $letterType = $_POST['letterType'] ?? null;
         $fromRole = $_POST['fromRole'] ?? null;
@@ -32,7 +29,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $file = $_FILES['signedLetter'];
         
-        // Validate file type
         $allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
         $fileInfo = finfo_open(FILEINFO_MIME_TYPE);
         $mimeType = finfo_file($fileInfo, $file['tmp_name']);
@@ -42,13 +38,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Invalid file type. Only PDF, DOC, and DOCX files are allowed.');
         }
 
-        // Create uploads directory if it doesn't exist
         $uploadDir = '../../uploads/signed-letters';
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0755, true);
         }
 
-        // Generate unique filename
         $fileExtension = pathinfo($file['name'], PATHINFO_EXTENSION);
         $fileName = sprintf(
             '%s_%s_%s_%s.%s',
@@ -62,19 +56,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $filePath = $uploadDir . '/' . $fileName;
         $relativePath = 'uploads/signed-letters/' . $fileName;
 
-        // Move uploaded file
         if (!move_uploaded_file($file['tmp_name'], $filePath)) {
             throw new Exception('Failed to save uploaded file');
         }
 
-        // Check if a signed letter already exists for this event plan and role
         $checkQuery = "SELECT id FROM signed_letters WHERE event_plan_id = ? AND from_role = ? AND letter_type = ?";
         $checkStmt = $conn->prepare($checkQuery);
         $checkStmt->execute([$eventPlanId, $fromRole, $letterType]);
         $existingLetter = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
         if ($existingLetter) {
-            // Update existing record
             $updateQuery = "UPDATE signed_letters SET 
                 file_path = ?, 
                 file_name = ?, 
@@ -86,7 +77,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $message = 'Signed letter updated successfully';
         } else {
-            // Insert new record
             $insertQuery = "INSERT INTO signed_letters (
                 event_plan_id, 
                 from_role, 

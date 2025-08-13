@@ -7,14 +7,11 @@ require_once '../../services/ActivityLogger.php';
 
 header('Content-Type: application/json');
 
-// Get database connection
 $database = new Database();
 $db = $database->getConnection();
 
-// Initialize user object
 $user = new User($db);
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -24,19 +21,16 @@ if (!$payload) {
     exit();
 }
 
-// Check if user is super-admin
 if ($payload['role'] !== 'super-admin') {
     http_response_code(403);
     echo json_encode(array("success" => false, "message" => "Access denied. Only super-admin can create users."));
     exit();
 }
 
-// Get posted data
 $data = json_decode(file_get_contents("php://input"));
 
 if (!empty($data->name) && !empty($data->email) && !empty($data->role)) {
     
-    // Check if email already exists
     $user->email = $data->email;
     if ($user->readByEmail()) {
         http_response_code(400);
@@ -44,7 +38,6 @@ if (!empty($data->name) && !empty($data->email) && !empty($data->role)) {
         exit();
     }
     
-    // Set user property values
     $user->name = $data->name;
     $user->email = $data->email;
     $user->role = $data->role;
@@ -52,9 +45,7 @@ if (!empty($data->name) && !empty($data->email) && !empty($data->role)) {
     $user->password_hash = password_hash($data->password ?? 'default123', PASSWORD_DEFAULT);
     $user->is_email_verified = false;
     
-    // Create the user
     if ($user->create()) {
-        // Log the user creation
         $logger = new ActivityLogger();
         $logger->logUserCreated($payload['user_id'], $user->id, $data->email, $_SERVER['REMOTE_ADDR'] ?? 'unknown');
         

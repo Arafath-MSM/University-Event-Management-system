@@ -10,7 +10,6 @@ $database = new Database();
 $db = $database->getConnection();
 $eventPlan = new EventPlan($db);
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -20,7 +19,6 @@ if (!$payload) {
     exit();
 }
 
-// Get query parameters
 $user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
 $status = isset($_GET['status']) ? $_GET['status'] : null;
 $type = isset($_GET['type']) ? $_GET['type'] : null;
@@ -31,7 +29,6 @@ try {
     $eventPlans = [];
     
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        // Get approval documents separately to avoid memory issues
         $approval_documents = $eventPlan->getApprovalDocuments($row['id']);
         
         $eventPlans[] = array(

@@ -10,8 +10,7 @@ try {
     
     echo "1. Fixing existing records with empty string status...\n";
     
-    // Update all records for event plan 20 to have status = 'signed'
-    // This time we handle both empty string and NULL values
+    
     $updateQuery = "UPDATE signed_letters SET status = 'signed' WHERE event_plan_id = 20 AND (status = '' OR status IS NULL OR status = ' ')";
     $stmt = $db->prepare($updateQuery);
     $stmt->execute();
@@ -19,7 +18,6 @@ try {
     
     echo "   Updated {$affectedRows} records with empty status\n";
     
-    // Let's also check what the actual status values are
     echo "\n2. Checking current status values...\n";
     $checkQuery = "SELECT id, from_role, status, LENGTH(status) as status_length FROM signed_letters WHERE event_plan_id = 20";
     $stmt = $db->prepare($checkQuery);
@@ -31,7 +29,6 @@ try {
         echo "   ID {$record['id']} - {$record['from_role']}: status = {$statusDisplay} (length: {$record['status_length']})\n";
     }
     
-    // Now let's try a more direct approach - update each record individually
     echo "\n3. Updating records individually...\n";
     
     $individualUpdateQuery = "UPDATE signed_letters SET status = 'signed' WHERE id = ?";
@@ -52,7 +49,6 @@ try {
     
     echo "\n4. Verifying the fix...\n";
     
-    // Check the current status of all records
     $checkQuery = "SELECT id, from_role, status FROM signed_letters WHERE event_plan_id = 20";
     $stmt = $db->prepare($checkQuery);
     $stmt->execute();
@@ -65,7 +61,6 @@ try {
     
     echo "\n5. Testing getSignedLetters query again...\n";
     
-    // Test the exact query from getSignedLetters function
     $testQuery = "SELECT 
                     sl.letter_content,
                     sl.letter_type,

@@ -24,12 +24,10 @@ class ActivityLogger {
      */
     public function log($action, $type, $userId = null, $targetId = null, $targetType = null, $details = null, $ipAddress = null, $userAgent = null) {
         try {
-            // Get IP address if not provided
             if (!$ipAddress) {
                 $ipAddress = $this->getClientIP();
             }
             
-            // Get user agent if not provided
             if (!$userAgent) {
                 $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
             }
@@ -55,14 +53,13 @@ class ActivityLogger {
             return $result;
             
         } catch (Exception $e) {
-            // Log error to error log but don't fail the main operation
             error_log("ActivityLogger Error: " . $e->getMessage());
             return false;
         }
     }
     
     /**
-     * Log user login
+        * Log user login
      */
     public function logLogin($userId, $email, $ipAddress = null) {
         return $this->log(

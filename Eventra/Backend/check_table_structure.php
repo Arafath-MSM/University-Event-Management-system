@@ -37,7 +37,6 @@ try {
     
     echo "3. Trying direct SQL update...\n";
     
-    // Let's try a direct SQL update without prepared statements
     $directUpdateQuery = "UPDATE signed_letters SET status = 'signed' WHERE event_plan_id = 20 AND status = ''";
     $result = $db->exec($directUpdateQuery);
     
@@ -46,7 +45,6 @@ try {
     } else {
         echo "   ❌ Direct update failed\n";
         
-        // Check for any SQL errors
         $errorInfo = $db->errorInfo();
         echo "   Error info: " . print_r($errorInfo, true) . "\n";
     }

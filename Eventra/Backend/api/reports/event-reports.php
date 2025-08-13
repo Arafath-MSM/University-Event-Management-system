@@ -8,11 +8,9 @@ require_once '../../utils/JWTUtil.php';
 
 header('Content-Type: application/json');
 
-// Get database connection
 $database = new Database();
 $db = $database->getConnection();
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -22,14 +20,12 @@ if (!$payload) {
     exit();
 }
 
-// Check if user is super-admin
 if ($payload['role'] !== 'super-admin') {
     http_response_code(403);
     echo json_encode(array("success" => false, "message" => "Access denied. Only super-admin can access reports."));
     exit();
 }
 
-// Get query parameters
 $startDate = $_GET['start_date'] ?? date('Y-m-01');
 $endDate = $_GET['end_date'] ?? date('Y-m-t');
 $eventType = $_GET['event_type'] ?? null;
@@ -39,7 +35,6 @@ $limit = $_GET['limit'] ?? 50;
 $offset = $_GET['offset'] ?? 0;
 
 try {
-    // Build the base query
     $baseQuery = "
         SELECT 
             ep.id,
@@ -62,7 +57,6 @@ try {
     
     $params = [$startDate, $endDate];
     
-    // Add filters
     if ($eventType && $eventType !== 'all') {
         $baseQuery .= " AND ep.title LIKE ?";
         $params[] = "%$eventType%";
@@ -78,15 +72,12 @@ try {
         $params[] = $status;
     }
     
-    // Add ordering and pagination
     $baseQuery .= " ORDER BY ep.created_at DESC LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
     
-    // Execute the query
     $stmt = $db->prepare($baseQuery);
     $stmt->execute($params);
     $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Get total count for pagination
     $countQuery = "
         SELECT COUNT(*) as total FROM event_plans ep
         WHERE DATE(ep.created_at) BETWEEN ? AND ?
@@ -113,7 +104,6 @@ try {
     $stmt->execute($countParams);
     $totalCount = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
     
-    // Format the response
     $formattedEvents = array();
     foreach ($events as $event) {
         $formattedEvents[] = array(

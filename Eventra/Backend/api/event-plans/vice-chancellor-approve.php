@@ -5,7 +5,6 @@ header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Max-Age: 3600");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-// Handle preflight OPTIONS request
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
@@ -26,7 +25,6 @@ $notification = new Notification($db);
 $signedLetter = new SignedLetter($db);
 $user = new User($db);
 
-// Get authorization header
 $headers = getallheaders();
 $authHeader = isset($headers['Authorization']) ? $headers['Authorization'] : '';
 
@@ -38,7 +36,6 @@ if (empty($authHeader) || !preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches
 
 $token = $matches[1];
 
-// Validate token using JWTUtil
 $payload = JWTUtil::validateToken($token);
 
 if (!$payload) {
@@ -47,7 +44,6 @@ if (!$payload) {
     exit;
 }
 
-// Get user from token payload
 $user->id = $payload['user_id'];
 
 $userFound = $user->readOne();
@@ -58,7 +54,6 @@ if (!$userFound) {
     exit;
 }
 
-// Check if user is vice-chancellor
 if ($user->role !== 'vice-chancellor') {
     http_response_code(403);
     echo json_encode(array("success" => false, "message" => "Access denied. Only Vice Chancellor can approve/reject event plans."));
@@ -84,12 +79,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($data->action === 'approve') {
-        // Don't change the event plan status - keep it as 'submitted'
-        // Just create the signed letter and send notification
         $eventPlan->remarks = $data->comment ?? '';
         
         if ($eventPlan->update()) {
-            // Create signed letter record (always create, even without signed document)
             $signedLetter->event_plan_id = $data->event_plan_id;
             $signedLetter->from_role = 'vice-chancellor';
             $signedLetter->to_role = 'super-admin';
@@ -99,7 +91,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $signedLetterCreated = $signedLetter->create();
             
-            // Create notification for VC (current user)
             $notification->createEventPlanNotification(
                 $user->id,
                 'Event Plan Approval Sent',
@@ -108,7 +99,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $data->event_plan_id
             );
 
-            // Create notification for event plan user
             $notification->createEventPlanNotification(
                 $eventPlan->user_id,
                 'Vice Chancellor Approval Received',
@@ -117,9 +107,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $data->event_plan_id
             );
 
-            // Create notification for Super-Admin
             $notification->createEventPlanNotification(
-                1, // Super-admin user ID (assuming it's 1)
+                1,
                 'Vice Chancellor Approval Received',
                 "Vice Chancellor has approved event plan '{$eventPlan->title}' and sent signed document.",
                 'event_plan_action_confirmation',
@@ -136,12 +125,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(array("success" => false, "message" => "Failed to update event plan."));
         }
     } elseif ($data->action === 'reject') {
-        // Update event plan status to rejected
         $eventPlan->status = 'rejected';
         $eventPlan->remarks = $data->comment ?? '';
         
         if ($eventPlan->update()) {
-            // Create notification for VC (current user)
             $notification->createEventPlanNotification(
                 $user->id,
                 'Event Plan Rejected',
@@ -150,7 +137,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $data->event_plan_id
             );
 
-            // Create notification for user
             $notification->createEventPlanNotification(
                 $eventPlan->user_id,
                 'Event Plan Rejected',
@@ -159,9 +145,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $data->event_plan_id
             );
 
-            // Create notification for Super-Admin
             $notification->createEventPlanNotification(
-                1, // Super-admin user ID
+                1,
                 'Event Plan Rejected by VC',
                 "Vice Chancellor has rejected event plan '{$eventPlan->title}'.",
                 'event_plan_action_confirmation',

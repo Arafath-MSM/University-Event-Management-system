@@ -15,7 +15,6 @@ $eventPlan = new EventPlan($db);
 $signedLetter = new SignedLetter($db);
 $notification = new Notification($db);
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -25,7 +24,6 @@ if (!$payload) {
     exit();
 }
 
-// Check if user is super-admin
 if ($payload['role'] !== 'super-admin') {
     http_response_code(403);
     echo json_encode(array("success" => false, "message" => "Access denied. Only Super Admin can approve event plans."));
@@ -50,7 +48,6 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
     }
     
     if ($data->action === 'approve') {
-        // Check if all authorities have approved
         $signedLetterObj = new SignedLetter($db);
         $stmt = $signedLetterObj->read(null, $data->event_plan_id, null, null, 'approval');
         
@@ -73,7 +70,6 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
             }
         }
         
-        // Check if all authorities have approved
         $allApproved = $authorityApprovals['vice-chancellor'] && 
                       $authorityApprovals['warden'] && 
                       $authorityApprovals['administration'] && 
@@ -94,15 +90,12 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
             exit();
         }
         
-        // All authorities have approved, proceed with final approval
         $eventPlan->status = 'approved';
     } else {
-        // For rejection, we can proceed immediately
         $eventPlan->status = 'rejected';
     }
     
     if ($eventPlan->update()) {
-        // Create notification for the event plan owner
         $notification->createAdminNotification(
             $eventPlan->user_id,
             "Event Plan " . ucfirst($data->action),
@@ -110,7 +103,6 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
             'event_plan_status'
         );
         
-        // Create notification for super-admin
         $notification->createAdminNotification(
             $payload['user_id'],
             "Event Plan " . ucfirst($data->action),
@@ -118,7 +110,6 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
             'event_plan_action_confirmation'
         );
         
-        // Log the event plan action
         $logger = new ActivityLogger();
         if ($data->action === 'approve') {
             $logger->logEventPlanApproved($payload['user_id'], $eventPlan->id, $eventPlan->title, $_SERVER['REMOTE_ADDR'] ?? 'unknown');

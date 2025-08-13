@@ -11,7 +11,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once '../../config/database.php';
 require_once '../../config/email.php';
 
-// Initialize database connection
 $database = new Database();
 $conn = $database->getConnection();
 
@@ -26,7 +25,6 @@ class SignedLettersEmailService {
     
     public function sendSignedLetters($eventPlanId, $userEmail, $eventTitle, $requesterName) {
         try {
-            // Get real signed letters from the database
             $signedLetters = $this->getSignedLetters($eventPlanId);
             
             if (empty($signedLetters)) {
@@ -36,11 +34,9 @@ class SignedLettersEmailService {
                 ];
             }
             
-            // Prepare email content
             $emailSubject = "Event Plan Approved - Signed Letters: {$eventTitle}";
             $emailBody = $this->generateEmailBody($eventTitle, $requesterName, $signedLetters);
             
-            // Send email with attachments
             $emailResult = $this->emailService->sendEmailWithAttachments(
                 $userEmail,
                 $emailSubject,
@@ -49,11 +45,9 @@ class SignedLettersEmailService {
             );
             
             if ($emailResult['success']) {
-                // Log the email sending in database (if table exists)
                 try {
                     $this->logEmailSent($eventPlanId, $userEmail, $signedLetters);
                 } catch (Exception $e) {
-                    // Log table doesn't exist yet, that's okay for now
                     error_log("Email logs table not available yet: " . $e->getMessage());
                 }
                 
@@ -200,7 +194,6 @@ class SignedLettersEmailService {
     }
 }
 
-// Handle the request
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $input = json_decode(file_get_contents('php://input'), true);
@@ -221,15 +214,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $eventTitle = $input['eventTitle'];
         $requesterName = $input['requesterName'];
         
-        // Validate email format
         if (!filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
             throw new Exception('Invalid email format');
         }
         
-        // Initialize services
         $signedLettersService = new SignedLettersEmailService($conn, $emailService);
         
-        // Send signed letters
         $result = $signedLettersService->sendSignedLetters(
             $eventPlanId, 
             $userEmail, 

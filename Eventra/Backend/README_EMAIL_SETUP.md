@@ -19,12 +19,12 @@ Edit `config/email.php` and update the SMTP configuration:
 
 ```php
 $this->config = [
-    'smtp_host' => 'smtp.gmail.com',        // Your SMTP server
-    'smtp_port' => 587,                     // SMTP port
-    'smtp_username' => 'your-email@gmail.com', // Your email
-    'smtp_password' => 'your-app-password',     // Your app password
-    'smtp_encryption' => 'tls',             // Encryption type
-    'from_email' => 'noreply@university.edu',  // University email
+    'smtp_host' => 'smtp.gmail.com',        
+    'smtp_port' => 587,                     
+    'smtp_username' => 'your-email@gmail.com', 
+    'smtp_password' => 'your-app-password',     
+    'smtp_encryption' => 'tls',             
+    'from_email' => 'noreply@university.edu', 
     'from_name' => 'University Event Management System'
 ];
 ```

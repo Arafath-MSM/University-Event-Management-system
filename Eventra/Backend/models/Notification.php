@@ -24,7 +24,6 @@ class Notification {
         $this->conn = $db;
     }
 
-    // Create new notification
     public function create() {
         $query = "INSERT INTO " . $this->table_name . "
                 SET
@@ -38,12 +37,10 @@ class Notification {
 
         $stmt = $this->conn->prepare($query);
 
-        // Sanitize inputs
         $this->title = htmlspecialchars($this->title ?? '');
         $this->message = htmlspecialchars($this->message ?? '');
         $this->metadata = $this->metadata ? json_encode($this->metadata) : null;
 
-        // Bind values
         $stmt->bindParam(":user_id", $this->user_id);
         $stmt->bindParam(":title", $this->title);
         $stmt->bindParam(":message", $this->message);
@@ -58,7 +55,6 @@ class Notification {
         return false;
     }
 
-    // Read notifications for a user
     public function read($user_id = null, $status = null, $type = null, $limit = null) {
         $query = "SELECT n.*, b.event_title as booking_title, v.name as venue_name 
                   FROM " . $this->table_name . " n
@@ -93,13 +89,11 @@ class Notification {
             $query .= " LIMIT " . (int)$limit;
         }
 
-        // Debug: Log the query and parameters
         error_log("Notification read query: " . $query);
         error_log("Notification read params: " . json_encode($params));
 
         $stmt = $this->conn->prepare($query);
 
-        // Bind parameters using named parameters
         foreach ($params as $key => $value) {
             $stmt->bindValue($key, $value);
         }
@@ -108,7 +102,6 @@ class Notification {
         return $stmt;
     }
 
-    // Read single notification
     public function readOne() {
         $query = "SELECT n.*, b.event_title as booking_title, v.name as venue_name 
                   FROM " . $this->table_name . " n
@@ -137,7 +130,6 @@ class Notification {
         return false;
     }
 
-    // Update notification (mark as read)
     public function update() {
         $query = "UPDATE " . $this->table_name . "
                 SET
@@ -146,7 +138,6 @@ class Notification {
 
         $stmt = $this->conn->prepare($query);
 
-        // Bind values
         $stmt->bindParam(":status", $this->status);
         $stmt->bindParam(":id", $this->id);
 
@@ -156,13 +147,11 @@ class Notification {
         return false;
     }
 
-    // Mark notification as read
     public function markAsRead() {
         $this->status = 'read';
         return $this->update();
     }
 
-    // Mark all notifications as read for a user
     public function markAllAsRead($user_id) {
         $query = "UPDATE " . $this->table_name . "
                 SET status = 'read'
@@ -174,7 +163,6 @@ class Notification {
         return $stmt->execute();
     }
 
-    // Get unread count for a user
     public function getUnreadCount($user_id) {
         $query = "SELECT COUNT(*) as count FROM " . $this->table_name . " 
                   WHERE user_id = ? AND status = 'unread'";
@@ -186,7 +174,6 @@ class Notification {
         return $row['count'];
     }
 
-    // Create notification for booking request
     public function createBookingRequestNotification($user_id, $booking_id, $venue_id, $event_title) {
         $this->user_id = $user_id;
         $this->title = "Booking Request Submitted";
@@ -202,7 +189,6 @@ class Notification {
         return $this->create();
     }
 
-    // Create notification for booking approval
     public function createBookingApprovedNotification($user_id, $booking_id, $event_title) {
         $this->user_id = $user_id;
         $this->title = "Booking Approved";
@@ -217,7 +203,6 @@ class Notification {
         return $this->create();
     }
 
-    // Create notification for booking rejection
     public function createBookingRejectedNotification($user_id, $booking_id, $event_title, $reason = '') {
         $this->user_id = $user_id;
         $this->title = "Booking Rejected";
@@ -233,7 +218,6 @@ class Notification {
         return $this->create();
     }
 
-    // Create notification for letter sent
     public function createLetterSentNotification($user_id, $booking_id, $event_title, $letter_type) {
         $this->user_id = $user_id;
         $this->title = "Letter Sent";
@@ -248,7 +232,6 @@ class Notification {
         return $this->create();
     }
 
-    // Create notification for final approval
     public function createFinalApprovalNotification($user_id, $booking_id, $event_title) {
         $this->user_id = $user_id;
         $this->title = "Final Approval";
@@ -263,7 +246,6 @@ class Notification {
         return $this->create();
     }
     
-    // Create notification for admin
     public function createAdminNotification($user_id, $title, $message, $type) {
         $this->user_id = $user_id;
         $this->title = $title;
@@ -278,7 +260,6 @@ class Notification {
         return $this->create();
     }
 
-    // Create notification for booking status change (approval/rejection)
     public function createBookingStatusNotification($user_id, $booking_id, $venue_id, $event_title, $status) {
         $this->user_id = $user_id;
         $this->title = "Booking Status Updated";
@@ -300,8 +281,8 @@ class Notification {
         $this->title = $title;
         $this->message = $message;
         $this->type = $type;
-        $this->related_booking_id = null; // Not a booking
-        $this->related_venue_id = null; // Not venue specific
+        $this->related_booking_id = null; 
+        $this->related_venue_id = null; 
         $this->metadata = json_encode([
             'event_plan_id' => $event_plan_id,
             'action_required' => 'none'

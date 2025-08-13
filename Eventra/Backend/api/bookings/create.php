@@ -10,18 +10,14 @@ require_once '../../models/Booking.php';
 require_once '../../models/Venue.php';
 require_once '../../utils/JWTUtil.php';
 
-// Get database connection
 $database = new Database();
 $db = $database->getConnection();
 
-// Initialize objects
 $booking = new Booking($db);
 $venue = new Venue($db);
 
-// Get posted data
 $data = json_decode(file_get_contents("php://input"));
 
-// Get user ID from token
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -38,7 +34,6 @@ $user_id = $payload['user_id'];
 
 if(!empty($data->venue_id) && !empty($data->event_title) && !empty($data->date) && !empty($data->time)) {
     
-    // Check if venue exists and is available
     $venue->id = $data->venue_id;
     if (!$venue->readOne()) {
         http_response_code(400);
@@ -49,7 +44,6 @@ if(!empty($data->venue_id) && !empty($data->event_title) && !empty($data->date) 
         exit;
     }
 
-    // Check if venue is available for the requested date and time
     if (!$booking->isVenueAvailable($data->venue_id, $data->date, $data->time)) {
         http_response_code(400);
         echo json_encode(array(
@@ -59,7 +53,6 @@ if(!empty($data->venue_id) && !empty($data->event_title) && !empty($data->date) 
         exit;
     }
     
-    // Set booking property values
     $booking->user_id = $user_id;
     $booking->venue_id = $data->venue_id;
     $booking->event_title = $data->event_title;
@@ -70,15 +63,12 @@ if(!empty($data->venue_id) && !empty($data->event_title) && !empty($data->date) 
     $booking->participants = $data->participants ?? 1;
     $booking->facilities = is_array($data->facilities) ? json_encode($data->facilities) : ($data->facilities ?? '');
 
-    // Create the booking
     $booking_id = $booking->create();
     
     if ($booking_id) {
-        // Get the created booking data
         $booking->id = $booking_id;
         $booking->readOne();
         
-        // Create notification for the user
         require_once '../../models/Notification.php';
         $notification = new Notification($db);
         $notification->createBookingRequestNotification(
@@ -88,8 +78,6 @@ if(!empty($data->venue_id) && !empty($data->event_title) && !empty($data->date) 
             $data->event_title
         );
         
-        // Create notification for super-admin
-        // First, get super-admin user ID
         require_once '../../models/User.php';
         $userModel = new User($db);
         $superAdminUsers = $userModel->read('super-admin');
@@ -105,7 +93,6 @@ if(!empty($data->venue_id) && !empty($data->event_title) && !empty($data->date) 
             }
         }
         
-        // Set response code - 201 Created
         http_response_code(201);
         echo json_encode(array(
             "success" => true,
@@ -125,7 +112,6 @@ if(!empty($data->venue_id) && !empty($data->event_title) && !empty($data->date) 
             )
         ));
     } else {
-        // Set response code - 503 Service Unavailable
         http_response_code(503);
         echo json_encode(array(
             "success" => false,
@@ -133,7 +119,6 @@ if(!empty($data->venue_id) && !empty($data->event_title) && !empty($data->date) 
         ));
     }
 } else {
-    // Set response code - 400 Bad request
     http_response_code(400);
     echo json_encode(array(
         "success" => false,

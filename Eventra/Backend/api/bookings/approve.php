@@ -14,7 +14,6 @@ $db = $database->getConnection();
 $booking = new Booking($db);
 $notification = new Notification($db);
 
-// Get JWT token and validate
 $token = JWTUtil::getTokenFromHeader();
 $payload = JWTUtil::validateToken($token);
 
@@ -24,7 +23,6 @@ if (!$payload) {
     exit();
 }
 
-// Check if user is super-admin
 if ($payload['role'] !== 'super-admin') {
     http_response_code(403);
     echo json_encode(array("success" => false, "message" => "Access denied. Only super-admin can approve bookings."));
@@ -48,14 +46,11 @@ if (!empty($data->booking_id) && !empty($data->action)) {
         exit();
     }
     
-    // Update booking status
     $new_status = ($data->action === 'approve') ? 'approved' : 'rejected';
     $booking->status = $new_status;
     
     if ($booking->update()) {
-        // Check if super-admin is the same as the booking owner
         if ($payload['user_id'] == $booking->user_id) {
-            // If super-admin is the booking owner, only create one notification
             $notification->createBookingStatusNotification(
                 $booking->user_id,
                 $booking->id,
@@ -64,7 +59,6 @@ if (!empty($data->booking_id) && !empty($data->action)) {
                 $new_status
             );
         } else {
-            // Create notification for the booking owner (user who made the booking)
             $notification->createBookingStatusNotification(
                 $booking->user_id,
                 $booking->id,
@@ -73,7 +67,6 @@ if (!empty($data->booking_id) && !empty($data->action)) {
                 $new_status
             );
             
-            // Create notification for super-admin (confirmation)
             $notification->createAdminNotification(
                 $payload['user_id'],
                 "Booking " . ucfirst($new_status),
@@ -82,7 +75,6 @@ if (!empty($data->booking_id) && !empty($data->action)) {
             );
         }
         
-        // Log the booking action
         $logger = new ActivityLogger();
         if ($data->action === 'approve') {
             $logger->logBookingApproved($payload['user_id'], $booking->id, $booking->event_title, $_SERVER['REMOTE_ADDR'] ?? 'unknown');

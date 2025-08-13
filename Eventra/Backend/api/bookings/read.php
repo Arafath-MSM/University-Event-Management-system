@@ -8,14 +8,11 @@ require_once '../../config/cors.php';
 require_once '../../config/database.php';
 require_once '../../models/Booking.php';
 
-// Get database connection
 $database = new Database();
 $db = $database->getConnection();
 
-// Initialize booking object
 $booking = new Booking($db);
 
-// Get query parameters
 $user_id = $_GET['user_id'] ?? null;
 $status = $_GET['status'] ?? null;
 $search = $_GET['search'] ?? null;
@@ -23,7 +20,6 @@ $date_from = $_GET['date_from'] ?? null;
 $date_to = $_GET['date_to'] ?? null;
 
 try {
-    // Read bookings
     $stmt = $booking->read($user_id, $status, $search, $date_from, $date_to);
     $bookings = [];
     
@@ -46,7 +42,6 @@ try {
         );
     }
     
-    // Set response code - 200 OK
     http_response_code(200);
     echo json_encode(array(
         "success" => true,
@@ -55,7 +50,6 @@ try {
     ));
     
 } catch (Exception $e) {
-    // Set response code - 500 Internal Server Error
     http_response_code(500);
     echo json_encode(array(
         "success" => false,

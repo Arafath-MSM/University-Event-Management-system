@@ -9,28 +9,21 @@ require_once '../../config/database.php';
 require_once '../../models/User.php';
 require_once '../../utils/JWTUtil.php';
 
-// Get database connection
 $database = new Database();
 $db = $database->getConnection();
 
-// Initialize user object
 $user = new User($db);
 
-// Get token from Authorization header
 $token = JWTUtil::getTokenFromHeader();
 
 if($token) {
-    // Validate token
     $payload = JWTUtil::validateToken($token);
     
     if($payload) {
-        // Token is valid, get user data
         $user->id = $payload['user_id'];
         
         if($user->readOne()) {
-            // Check if user is still active
             if($user->status === 'active') {
-                // Set response code - 200 OK
                 http_response_code(200);
                 echo json_encode(array(
                     "success" => true,
@@ -51,7 +44,6 @@ if($token) {
                     )
                 ));
             } else {
-                // Set response code - 403 Forbidden
                 http_response_code(403);
                 echo json_encode(array(
                     "success" => false,
@@ -59,7 +51,6 @@ if($token) {
                 ));
             }
         } else {
-            // Set response code - 404 Not found
             http_response_code(404);
             echo json_encode(array(
                 "success" => false,
@@ -67,7 +58,6 @@ if($token) {
             ));
         }
     } else {
-        // Set response code - 401 Unauthorized
         http_response_code(401);
         echo json_encode(array(
             "success" => false,
@@ -75,7 +65,6 @@ if($token) {
         ));
     }
 } else {
-    // Set response code - 401 Unauthorized
     http_response_code(401);
     echo json_encode(array(
         "success" => false,

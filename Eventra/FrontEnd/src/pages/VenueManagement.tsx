@@ -88,8 +88,44 @@ const VenueManagement: React.FC = () => {
     images: []
   });
 
+  // Add state for image uploads
+  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+
   const eventTypes = ['Conference', 'Cultural Events', 'Sports Events', 'Social Events','Club Events' ];
   const venueTypes = ['Auditorium', 'Lecture Theater', 'Outdoor', 'Laboratories'];
+
+  // Handle image file selection
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const newFiles = Array.from(files);
+      setUploadedImages(prev => [...prev, ...newFiles]);
+      
+      // Create preview URLs
+      newFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (e.target?.result) {
+            setImagePreviewUrls(prev => [...prev, e.target!.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  // Remove image from upload
+  const removeImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
+    setImagePreviewUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Clear all images
+  const clearImages = () => {
+    setUploadedImages([]);
+    setImagePreviewUrls([]);
+  };
 
   const filteredVenues = venues.filter(venue => {
     const matchesSearch = venue.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -102,6 +138,9 @@ const VenueManagement: React.FC = () => {
 
   const handleAddVenue = () => {
     if (newVenue.name && newVenue.capacity && newVenue.location && newVenue.type) {
+      // Convert uploaded images to base64 strings for storage
+      const imageUrls = imagePreviewUrls.length > 0 ? imagePreviewUrls : ['/placeholder.svg'];
+      
       const venue: Venue = {
         id: Date.now().toString(),
         name: newVenue.name,
@@ -110,7 +149,7 @@ const VenueManagement: React.FC = () => {
         type: newVenue.type,
         availability: newVenue.availability || 'Available',
         restrictions: newVenue.restrictions || '',
-        images: newVenue.images || []
+        images: imageUrls
       };
       
       setVenues([...venues, venue]);
@@ -124,17 +163,25 @@ const VenueManagement: React.FC = () => {
         images: []
       });
       setShowAddModal(false);
+      // Clear image state
+      clearImages();
     }
   };
 
   const handleEditVenue = (venue: Venue) => {
     setEditingVenue(venue);
     setNewVenue(venue);
+    // Load existing images for editing
+    setImagePreviewUrls(venue.images);
+    setUploadedImages([]);
     setShowAddModal(true);
   };
 
   const handleUpdateVenue = () => {
     if (editingVenue && newVenue.name && newVenue.capacity && newVenue.location && newVenue.type) {
+      // Use uploaded images if any, otherwise keep existing images
+      const imageUrls = imagePreviewUrls.length > 0 ? imagePreviewUrls : editingVenue.images;
+      
       const updatedVenue: Venue = {
         ...editingVenue,
         name: newVenue.name,
@@ -143,7 +190,7 @@ const VenueManagement: React.FC = () => {
         type: newVenue.type,
         availability: newVenue.availability || 'Available',
         restrictions: newVenue.restrictions || '',
-        images: newVenue.images || []
+        images: imageUrls
       };
       
       setVenues(venues.map(v => v.id === editingVenue.id ? updatedVenue : v));
@@ -158,6 +205,8 @@ const VenueManagement: React.FC = () => {
         images: []
       });
       setShowAddModal(false);
+      // Clear image state
+      clearImages();
     }
   };
 
@@ -399,9 +448,57 @@ const VenueManagement: React.FC = () => {
                         <label className="block text-sm font-medium text-white mb-2">
                           Image Upload
                         </label>
-                        <div className="border-2 border-dashed border-white/20 rounded-xl p-4 text-center hover:border-white/40 transition-colors cursor-pointer bg-white/5">
-                          <Upload size={24} className="mx-auto text-white mb-2" />
-                          <p className="text-sm text-white/80">Click to upload images</p>
+                        <div className="space-y-4">
+                          {/* File Input */}
+                          <div className="border-2 border-dashed border-white/20 rounded-xl p-4 text-center hover:border-white/40 transition-colors cursor-pointer bg-white/5">
+                            <input
+                              type="file"
+                              multiple
+                              accept="image/*"
+                              onChange={handleImageUpload}
+                              className="hidden"
+                              id="image-upload"
+                            />
+                            <label htmlFor="image-upload" className="cursor-pointer">
+                              <Upload size={24} className="mx-auto text-white mb-2" />
+                              <p className="text-sm text-white/80">Click to upload images</p>
+                              <p className="text-xs text-white/60 mt-1">Supports: JPG, PNG, GIF</p>
+                            </label>
+                          </div>
+                          
+                          {/* Image Previews */}
+                          {imagePreviewUrls.length > 0 && (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-white/80">Uploaded Images ({imagePreviewUrls.length})</span>
+                                <button
+                                  type="button"
+                                  onClick={clearImages}
+                                  className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                                >
+                                  Clear All
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                {imagePreviewUrls.map((url, index) => (
+                                  <div key={index} className="relative group">
+                                    <img
+                                      src={url}
+                                      alt={`Preview ${index + 1}`}
+                                      className="w-full h-24 object-cover rounded-lg border border-white/20"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeImage(index)}
+                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -432,6 +529,8 @@ const VenueManagement: React.FC = () => {
                           restrictions: '',
                           images: []
                         });
+                        // Clear image state
+                        clearImages();
                       }}
                       className="bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl hover:bg-white/20 transition-colors border border-white/20"
                     >

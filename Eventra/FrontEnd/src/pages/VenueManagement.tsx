@@ -48,10 +48,10 @@ const VenueManagement: React.FC = () => {
     },
     {
       id: '2',
-      name: 'Technology  Lecture Theater 1',
+      name: 'Technology Lecture Theater 1',
       capacity: 250,
       location: 'Technology Building',
-      type: 'Lecture Thater',
+      type: 'Lecture Theater',
       availability: 'Booked',
       restrictions: 'Professional events only',
       images: ['/Tecno.jpg']
@@ -191,7 +191,7 @@ const VenueManagement: React.FC = () => {
           <div className="flex flex-col items-center text-center w-full">
             <h1 className="text-5xl font-extrabold text-white">Venue Management</h1>
             <p className="text-2xl text-white mt-4">Discover and manage event venues</p>
-            {user?.role === 'admin' || user?.role === 'super-admin' ? (
+            {user?.role === 'super-admin' ? (
               <button
                 onClick={() => setShowAddModal(true)}
                 className="mt-6 bg-white/10 backdrop-blur-sm text-white px-6 py-2 rounded-xl flex items-center hover:bg-white/20 transition-colors border border-white/20"
@@ -276,15 +276,27 @@ const VenueManagement: React.FC = () => {
                     <div className="text-xs text-gray-300 mt-2"><span className="font-semibold">Restrictions:</span> {venue.restrictions}</div>
                   </div>
                   <div className="flex gap-2 mt-auto">
-                    <button className="bg-gray-800/70 text-white px-4 py-2 rounded-lg font-medium flex-1 hover:bg-gray-700 transition-colors flex items-center justify-center">
+                    <button 
+                      onClick={() => {
+                        // TODO: Implement view details functionality
+                        alert(`Viewing details for: ${venue.name}`);
+                      }}
+                      className="bg-gray-800/70 text-white px-4 py-2 rounded-lg font-medium flex-1 hover:bg-gray-700 transition-colors flex items-center justify-center"
+                    >
                       <Eye size={16} className="mr-2" /> View Details
                     </button>
-                    {user?.role === 'admin' || user?.role === 'super-admin' ? (
+                    {user?.role === 'super-admin' ? (
                       <>
-                        <button className="bg-yellow-900 bg-opacity-80 text-white px-3 py-2 rounded-lg font-medium hover:bg-yellow-800 transition-colors flex items-center justify-center">
+                        <button 
+                          onClick={() => handleEditVenue(venue)}
+                          className="bg-yellow-900 bg-opacity-80 text-white px-3 py-2 rounded-lg font-medium hover:bg-yellow-800 transition-colors flex items-center justify-center"
+                        >
                           <Edit size={16} />
                         </button>
-                        <button className="bg-red-900 bg-opacity-80 text-white px-3 py-2 rounded-lg font-medium hover:bg-red-800 transition-colors flex items-center justify-center">
+                        <button 
+                          onClick={() => handleDeleteVenue(venue.id)}
+                          className="bg-red-900 bg-opacity-80 text-white px-3 py-2 rounded-lg font-medium hover:bg-red-800 transition-colors flex items-center justify-center"
+                        >
                           <Trash size={16} />
                         </button>
                       </>

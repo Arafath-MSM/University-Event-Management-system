@@ -142,13 +142,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await apiService.register(userData);
       
-      if (response.success) {
+      if (response.success && response.user && response.token) {
         console.log('Registration successful:', response.user);
         
-        localStorage.removeItem('eventra_user');
-        localStorage.removeItem('eventra_token');
-        setUser(null);
-        setIsAuthenticated(false);
+        const userData: User = {
+          id: response.user.id.toString(),
+          name: response.user.name,
+          email: response.user.email,
+          role: response.user.role as User['role'],
+        };
+        
+        // Automatically log in the user after successful registration
+        setUser(userData);
+        setIsAuthenticated(true);
+        localStorage.setItem('eventra_user', JSON.stringify(userData));
+        localStorage.setItem('eventra_token', response.token);
         
         return true;
       } else {

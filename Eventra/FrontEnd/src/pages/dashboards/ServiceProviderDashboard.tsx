@@ -240,38 +240,27 @@ const ServiceProviderDashboard: React.FC = () => {
 
   return (
     <Layout notificationBell={notificationBell}>
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-900">
+  <div className="min-h-screen w-full" style={{ backgroundColor: '#bd7880' }}>
         {/* Header */}
         <div className="bg-black bg-opacity-40 backdrop-blur-sm border-b border-white/10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
               <div className="flex items-center justify-between">
-                <div>
-                <h1 className="text-3xl font-bold text-white">Service Provider Dashboard</h1>
-                <p className="text-indigo-200 mt-1">Manage event planning service requests and approvals</p>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <p className="text-white font-medium">{user?.name}</p>
-                  <p className="text-indigo-300 text-sm">{user?.serviceType || 'Service Provider'}</p>
-                </div>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                    className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white hover:bg-indigo-700 transition-colors"
-                  >
-                    <User className="w-5 h-5" />
-                  </button>
-                  {showProfileDropdown && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
-                      >
-                        <LogOut className="w-4 h-4 mr-2" />
-                        Logout
-                      </button>
-                </div>
-                  )}
+                {/* Welcome Section */}
+                <div className="bg-black/30 backdrop-blur-sm text-white rounded-2xl py-12 px-8 shadow-xl border border-white/10 w-full mb-8">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="text-3xl font-extrabold mb-2">
+                        Welcome, {user?.name}!
+                      </h1>
+                      <p className="text-white/90 text-lg font-semibold">
+                        Manage event planning service requests and approvals
+                      </p>
+                    </div>
+                    <div className="hidden md:block">
+                      <div className="bg-black/60 backdrop-blur-sm rounded-xl p-4 flex items-center justify-center border border-white/10">
+                        <ClipboardList size={48} className="text-white" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -281,9 +270,9 @@ const ServiceProviderDashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <div className="bg-black/30 backdrop-blur-sm rounded-xl p-6 border border-white/20">
               <div className="flex items-center">
-                <div className="p-3 bg-yellow-500/20 rounded-lg">
+                <div className="p-3 bg-black/40 rounded-lg">
                   <Clock className="w-6 h-6 text-yellow-400" />
                 </div>
                 <div className="ml-4">
@@ -293,9 +282,9 @@ const ServiceProviderDashboard: React.FC = () => {
                   </div>
                 </div>
             
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <div className="bg-black/30 backdrop-blur-sm rounded-xl p-6 border border-white/20">
               <div className="flex items-center">
-                <div className="p-3 bg-blue-500/20 rounded-lg">
+                <div className="p-3 bg-black/40 rounded-lg">
                   <ArrowRight className="w-6 h-6 text-blue-400" />
               </div>
                 <div className="ml-4">
@@ -305,9 +294,9 @@ const ServiceProviderDashboard: React.FC = () => {
                 </div>
               </div>
             
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <div className="bg-black/30 backdrop-blur-sm rounded-xl p-6 border border-white/20">
               <div className="flex items-center">
-                <div className="p-3 bg-green-500/20 rounded-lg">
+                <div className="p-3 bg-black/40 rounded-lg">
                   <CheckCircle className="w-6 h-6 text-green-400" />
                   </div>
                 <div className="ml-4">
@@ -317,9 +306,9 @@ const ServiceProviderDashboard: React.FC = () => {
                 </div>
               </div>
             
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <div className="bg-black/30 backdrop-blur-sm rounded-xl p-6 border border-white/20">
               <div className="flex items-center">
-                <div className="p-3 bg-red-500/20 rounded-lg">
+                <div className="p-3 bg-black/40 rounded-lg">
                   <AlertCircle className="w-6 h-6 text-red-400" />
                   </div>
                 <div className="ml-4">
@@ -334,13 +323,7 @@ const ServiceProviderDashboard: React.FC = () => {
           <div className="bg-black bg-opacity-40 rounded-xl shadow-none p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white">Event Planning Requests</h2>
-              <button
-                onClick={fetchData}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                Refresh
-              </button>
-                    </div>
+            </div>
                     
             {isLoading ? (
               <div className="text-center py-8">

@@ -237,9 +237,8 @@ const VenueManagement: React.FC = () => {
       >
         <div className="w-full max-w-6xl mx-auto px-4 md:px-8">
           {/* Header */}
-          <div className="flex flex-col items-center text-center w-full">
-            <h1 className="text-5xl font-extrabold text-white">Venue Management</h1>
-            <p className="text-2xl text-white mt-4">Discover and manage event venues</p>
+          <div className="flex flex-col items-center text-center w-full mb-8">
+            <h1 className="text-5xl font-extrabold text-white mb-8">Venues</h1>
             {user?.role === 'super-admin' ? (
               <button
                 onClick={() => setShowAddModal(true)}
@@ -252,7 +251,7 @@ const VenueManagement: React.FC = () => {
           </div>
 
           {/* Filters */}
-          <div className="bg-black bg-opacity-40 rounded-xl shadow-none p-6">
+          <div className="bg-black bg-opacity-40 rounded-xl shadow-none p-6 mb-8">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* Search */}
               <div className="relative">

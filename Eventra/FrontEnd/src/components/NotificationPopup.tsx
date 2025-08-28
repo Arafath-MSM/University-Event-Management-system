@@ -84,17 +84,17 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose }
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black bg-opacity-50"
+        className="absolute inset-0 bg-black bg-opacity-70"
         onClick={onClose}
       />
-      
+
       {/* Popup */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden">
+      <div className="relative bg-gray-800 bg-opacity-80 rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden border border-white/10">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <div className="flex items-center space-x-2">
-            <Bell size={20} className="text-gray-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
+            <Bell size={20} className="text-white" />
+            <h2 className="text-lg font-semibold text-white">Notifications</h2>
             {notifications.filter(n => n.status === 'unread').length > 0 && (
               <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1">
                 {notifications.filter(n => n.status === 'unread').length}
@@ -103,7 +103,7 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose }
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-300 hover:text-white transition-colors"
           >
             <X size={20} />
           </button>
@@ -113,13 +113,13 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose }
         <div className="max-h-[60vh] overflow-y-auto">
           {isLoading ? (
             <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="text-gray-500 mt-2">Loading notifications...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto"></div>
+              <p className="text-white mt-2">Loading notifications...</p>
             </div>
           ) : notifications.length === 0 ? (
             <div className="p-8 text-center">
-              <Bell size={48} className="text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No notifications found</p>
+              <Bell size={48} className="text-gray-400 mx-auto mb-4" />
+              <p className="text-white">No notifications found</p>
             </div>
           ) : (
             <div className="p-4 space-y-3">
@@ -129,25 +129,25 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose }
                   onClick={() => handleNotificationClick(notification)}
                   className={`p-3 rounded-lg border cursor-pointer transition-colors hover:shadow-md ${
                     notification.status === 'unread' 
-                      ? 'border-blue-300 bg-blue-50' 
-                      : 'border-gray-200 bg-gray-50'
+                      ? 'border-blue-400 bg-black/40' 
+                      : 'border-gray-700 bg-gray-700/60'
                   }`}
                 >
                   <div className="flex items-start space-x-3">
-                    <div className="text-2xl">{getNotificationIcon(notification.type)}</div>
+                    <div className="text-2xl text-white">{getNotificationIcon(notification.type)}</div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-900 text-sm">
+                      <h3 className="font-medium text-white text-sm">
                         {notification.title}
                       </h3>
-                      <p className="text-gray-600 text-xs mt-1">
+                      <p className="text-white text-xs mt-1">
                         {notification.message}
                       </p>
-                      <p className="text-gray-400 text-xs mt-2">
+                      <p className="text-gray-300 text-xs mt-2">
                         {new Date(notification.created_at).toLocaleDateString()} at {new Date(notification.created_at).toLocaleTimeString()}
                       </p>
                     </div>
                     {notification.status === 'unread' && (
-                      <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1"></div>
+                      <div className="w-2 h-2 bg-blue-400 rounded-full flex-shrink-0 mt-1"></div>
                     )}
                   </div>
                 </div>
@@ -158,7 +158,7 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose }
 
         {/* Footer */}
         {notifications.length > 0 && (
-          <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <div className="p-4 border-t border-gray-700 bg-gray-800/80">
             <button
               onClick={async () => {
                 try {
@@ -170,7 +170,7 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ isOpen, onClose }
                   console.error('Error marking all notifications as read:', error);
                 }
               }}
-              className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium"
+              className="w-full text-sm text-blue-300 hover:text-white font-medium"
             >
               Mark all as read
             </button>

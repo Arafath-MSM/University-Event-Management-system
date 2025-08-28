@@ -1498,20 +1498,7 @@ const AdminTools: React.FC = () => {
   const renderLogsTab = () => (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-        <h2 className="text-2xl font-bold text-white">System Logs</h2>
-        <div className="flex items-center space-x-3">
-          <button 
-            onClick={fetchSystemLogs}
-            className="mt-4 md:mt-0 bg-blue-600/80 backdrop-blur-sm text-white px-4 py-2 rounded-xl flex items-center hover:bg-blue-700/80 transition-colors border border-blue-500/30"
-          >
-            <RefreshCw size={20} className="mr-2" />
-            Refresh
-          </button>
-          <button className="mt-4 md:mt-0 bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl flex items-center hover:bg-white/20 transition-colors border border-white/20">
-            <Download size={20} className="mr-2" />
-            Export Logs
-          </button>
-        </div>
+  <h2 className="text-2xl font-bold text-white">System Logs</h2>
       </div>
 
       {/* Filters */}
@@ -1874,31 +1861,6 @@ const AdminTools: React.FC = () => {
                         </div>
                       </div>
                       
-                      <div className="bg-gray-800/60 rounded-lg p-4">
-                        <h5 className="font-medium text-white mb-3">Services Requested</h5>
-                        <div className="space-y-2">
-                          <div className="flex items-center text-white/90">
-                            <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                            Projector & Audio System
-                          </div>
-                          <div className="flex items-center text-white/90">
-                            <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                            Stage Setup
-                          </div>
-                          <div className="flex items-center text-white/90">
-                            <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                            Lighting System
-                          </div>
-                          <div className="flex items-center text-white/90">
-                            <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                            Security Services
-                          </div>
-                          <div className="flex items-center text-white/90">
-                            <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                            Catering Services
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   </div>
 

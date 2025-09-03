@@ -32,6 +32,7 @@ if ($payload['role'] !== 'service-provider') {
 $data = json_decode(file_get_contents("php://input"));
 
 if (!empty($data->event_plan_id) && !empty($data->action)) {
+    error_log("Service Provider Action: Event plan ID: {$data->event_plan_id}, Action: {$data->action}");
     $eventPlan->id = $data->event_plan_id;
     
     if (!$eventPlan->readOne()) {
@@ -40,18 +41,25 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
         exit();
     }
     
-    if ($eventPlan->status !== 'submitted') {
+    error_log("Service Provider Action: Current event plan status: {$eventPlan->status}");
+    if ($eventPlan->status !== 'submitted' && $eventPlan->status !== 'forwarded_to_service_provider') {
+        error_log("Service Provider Action: Invalid status '{$eventPlan->status}' for event plan {$data->event_plan_id}");
         http_response_code(400);
-        echo json_encode(array("success" => false, "message" => "Event plan is not in submitted status"));
+        echo json_encode(array("success" => false, "message" => "Event plan is not in submitted or forwarded status"));
         exit();
     }
     
     if ($data->action === 'approve') {
+        $eventPlan->status = 'approved';
+        $eventPlan->remarks = $data->comment ?? '';
+        $updateResult = $eventPlan->update();
+        error_log("Service Provider Approval: Event plan {$data->event_plan_id} status updated to 'approved'. Update result: " . ($updateResult ? 'success' : 'failed'));
         $letter_content = $data->comment ?? "Event plan '{$eventPlan->title}' has been approved by Service Provider. All service requirements can be fulfilled.";
     } else {
         $eventPlan->status = 'rejected';
         $eventPlan->remarks = $data->comment ?? '';
-        $eventPlan->update();
+        $updateResult = $eventPlan->update();
+        error_log("Service Provider Rejection: Event plan {$data->event_plan_id} status updated to 'rejected'. Update result: " . ($updateResult ? 'success' : 'failed'));
         
         $letter_content = $data->comment ?? "Event plan '{$eventPlan->title}' has been rejected by Service Provider.";
     }

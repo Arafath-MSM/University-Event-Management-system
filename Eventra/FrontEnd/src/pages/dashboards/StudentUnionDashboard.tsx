@@ -92,24 +92,41 @@ const StudentUnionDashboard: React.FC = () => {
   };
 
   const handleViewPdf = (pdfData: string) => {
-    console.log('PDF Data received:', pdfData ? pdfData.substring(0, 100) + '...' : 'null');
-    
     if (!pdfData) {
       toast.error('No PDF data available');
       return;
     }
-    
-    // Check if it's a valid data URL
-    if (!pdfData.startsWith('data:application/pdf;base64,') && !pdfData.startsWith('data:application/octet-stream;base64,')) {
-      toast.error('Invalid PDF format');
-      return;
-    }
-    
     try {
-      setSelectedPdfUrl(pdfData);
-      setShowPdfModal(true);
+      if (pdfData.startsWith('data:application/pdf;base64,')) {
+        const base64 = pdfData.split(',')[1];
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        setSelectedPdfUrl(url);
+        setShowPdfModal(true);
+        return;
+      }
+      if (pdfData.startsWith('data:application/octet-stream;base64,')) {
+        const base64 = pdfData.split(',')[1];
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        setSelectedPdfUrl(url);
+        setShowPdfModal(true);
+        return;
+      }
+      toast.error('Invalid PDF format');
     } catch (error) {
-      console.error('Error setting PDF URL:', error);
       toast.error('Failed to load PDF document');
     }
   };
@@ -126,7 +143,7 @@ const StudentUnionDashboard: React.FC = () => {
   const handleUploadSignedDocument = (requestId: number) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.pdf,.doc,.docx';
+    input.accept = '.pdf';
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
@@ -176,6 +193,7 @@ const StudentUnionDashboard: React.FC = () => {
         );
         
         setRequests(pendingEventPlans);
+        pendingEventPlans.forEach((eventPlan: any) => loadApprovalDocuments(eventPlan.id));
       }
 
       // Fetch approved event plans
@@ -550,9 +568,9 @@ const StudentUnionDashboard: React.FC = () => {
                               <td className="py-2 px-4 text-white">{letter.event_title}</td>
                               <td className="py-2 px-4">
                                 <div className="flex flex-col gap-1 items-start">
-                                  {letter.letter_content && letter.letter_content.trim() !== '' ? (
+                                  {(letter.signature_data || letter.letter_content) && (String(letter.signature_data || letter.letter_content).trim() !== '') ? (
                                     <button
-                                      onClick={() => handleViewPdf(letter.letter_content)}
+                                      onClick={() => handleViewPdf((letter.signature_data as any) || letter.letter_content)}
                                       className="text-blue-300 underline text-sm hover:text-blue-200 bg-transparent border-none p-0 cursor-pointer"
                                 >
                                   View PDF
@@ -637,7 +655,7 @@ const StudentUnionDashboard: React.FC = () => {
                     // Handle upload functionality
                     const input = document.createElement('input');
                     input.type = 'file';
-                    input.accept = '.pdf,.doc,.docx';
+                    input.accept = '.pdf';
                     input.onchange = (e) => {
                       const file = (e.target as HTMLInputElement).files?.[0];
                       if (file) {

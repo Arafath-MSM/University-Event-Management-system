@@ -61,7 +61,7 @@ if (!empty($data->event_plan_id) && !empty($data->action)) {
     $signedLetter->to_role = 'super-admin';
     $signedLetter->letter_type = $data->action === 'approve' ? 'approval' : 'rejection';
     $signedLetter->letter_content = $data->signed_document ?? $letter_content;
-    $signedLetter->signature_data = null;
+    $signedLetter->signature_data = $data->signed_document ?? null;
     $signedLetter->status = 'sent';
     
     if ($signedLetter->create()) {

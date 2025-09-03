@@ -51,7 +51,8 @@ class SignedLetter {
 
         $stmt = $this->conn->prepare($query);
 
-        $this->letter_content = htmlspecialchars($this->letter_content ?? '');
+        // Do not escape base64/data URL content; escaping will corrupt the PDF data
+        $this->letter_content = $this->letter_content ?? '';
         $this->signature_data = $this->signature_data ? json_encode($this->signature_data) : null;
 
         if ($this->booking_id) {
@@ -176,7 +177,7 @@ class SignedLetter {
 
         $stmt = $this->conn->prepare($query);
 
-        $this->letter_content = htmlspecialchars($this->letter_content ?? '');
+        $this->letter_content = $this->letter_content ?? '';
         $this->signature_data = $this->signature_data ? json_encode($this->signature_data) : null;
 
         $stmt->bindParam(":from_role", $this->from_role);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "sonner";
 import DashboardNavbar from "@/components/DashboardNavbar";
 import Layout from "@/components/Layout";
 import { apiService } from "@/services/api";
@@ -86,15 +87,68 @@ const WardenDashboard: React.FC = () => {
     }
   };
 
-  const handleViewPdf = (pdfData: string) => {
-    setSelectedPdfUrl(pdfData);
-    setShowPdfModal(true);
+  const handleViewPdf = (pdfData: any) => {
+    // Normalize possible object from JSON-decoded signature_data
+    let source: string | null = null;
+    if (typeof pdfData === 'string') {
+      source = pdfData;
+    } else if (pdfData && typeof pdfData === 'object') {
+      source = pdfData.dataUrl || pdfData.url || pdfData.content || null;
+    }
+  
+    if (!source) {
+      toast.error('No PDF data available');
+      return;
+    }
+    // Sanitize common storage quirks: trim, strip wrapping quotes, decode URL-encoded data URLs
+    try {
+      source = source.trim();
+      if ((source.startsWith('"') && source.endsWith('"')) || (source.startsWith("'") && source.endsWith("'"))) {
+        source = source.substring(1, source.length - 1);
+      }
+      if (source.startsWith('data%3A') || source.includes('%2F')) {
+        source = decodeURIComponent(source);
+      }
+    } catch (_) {}
+    try {
+      if (source.startsWith('data:application/pdf;base64,')) {
+        const base64 = source.split(',')[1];
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        setSelectedPdfUrl(url);
+        setShowPdfModal(true);
+        return;
+      }
+      if (source.startsWith('data:application/octet-stream;base64,')) {
+        const base64 = source.split(',')[1];
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        setSelectedPdfUrl(url);
+        setShowPdfModal(true);
+        return;
+      }
+      toast.error('Invalid PDF format');
+    } catch (error) {
+      toast.error('Failed to load PDF document');
+    }
   };
 
   const handleUploadSignedDocument = (requestId: number) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.pdf,.doc,.docx';
+    input.accept = '.pdf';
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
@@ -145,6 +199,7 @@ const WardenDashboard: React.FC = () => {
         );
         
         setRequests(pendingEventPlans);
+        pendingEventPlans.forEach((eventPlan: any) => loadApprovalDocuments(eventPlan.id));
       }
       
       // Fetch signed letters
@@ -447,16 +502,23 @@ const WardenDashboard: React.FC = () => {
                               <td className="py-2 px-4 text-white">{letter.event_title || 'N/A'}</td>
                               <td className="py-2 px-4">
                                 <div className="flex flex-col gap-1 items-start">
-                                  {letter.letter_content && letter.letter_content.trim() !== '' ? (
-                                    <button
-                                      onClick={() => handleViewPdf(letter.letter_content)}
-                                      className="text-blue-300 underline text-sm hover:text-blue-200 bg-transparent border-none p-0 cursor-pointer"
-                                    >
-                                      View PDF
-                                    </button>
-                                  ) : (
-                                    <span className="text-gray-400 text-sm">No document uploaded</span>
-                                  )}
+                                  {(() => {
+                                    const src = (typeof letter.signature_data === 'object' && letter.signature_data)
+                                      ? (letter.signature_data.dataUrl || letter.signature_data.url || letter.signature_data.content || '')
+                                      : (letter.signature_data || letter.letter_content || '');
+                                    const s = String(src || '').trim();
+                                    const isPdf = s.startsWith('data:application/pdf;base64,') || s.startsWith('data:application/octet-stream;base64,');
+                                    return isPdf ? (
+                                      <button
+                                        onClick={() => handleViewPdf(src)}
+                                        className="text-blue-300 underline text-sm hover:text-blue-200 bg-transparent border-none p-0 cursor-pointer"
+                                      >
+                                        View PDF
+                                      </button>
+                                    ) : (
+                                      <span className="text-gray-400 text-sm">No document uploaded</span>
+                                    );
+                                  })()}
                                 </div>
                               </td>
                               <td className="py-2 px-4">
@@ -531,7 +593,7 @@ const WardenDashboard: React.FC = () => {
                       // Handle upload functionality
                       const input = document.createElement('input');
                       input.type = 'file';
-                      input.accept = '.pdf,.doc,.docx';
+                      input.accept = '.pdf';
                       input.onchange = (e) => {
                         const file = (e.target as HTMLInputElement).files?.[0];
                         if (file) {

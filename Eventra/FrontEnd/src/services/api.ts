@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost/Eventra-ESRS/Eventra/Backend/api';
+const API_BASE_URL = 'http://localhost:8000/';
 
 export interface LoginResponse {
   success: boolean;

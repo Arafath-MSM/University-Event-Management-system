@@ -657,7 +657,15 @@ const AdminTools: React.FC = () => {
       // Find the authority letter for this role
       const authorityLetter = authorityLetters.find(letter => letter.role === role);
       
-      if (authorityLetter) {
+      console.log('🔍 Viewing authority letter for role:', role);
+      console.log('📄 Authority letter data:', authorityLetter);
+      
+      if (authorityLetter && (authorityLetter.signature_data || authorityLetter.letter_content)) {
+        console.log('✅ Found letter content:', {
+          signature_data: authorityLetter.signature_data ? 'Available' : 'Not available',
+          letter_content: authorityLetter.letter_content ? 'Available' : 'Not available'
+        });
+        
         // Set the file preview data and show modal
         setSelectedFilePreview({
           roleName: authorityLetter.role_display_name,
@@ -676,7 +684,8 @@ const AdminTools: React.FC = () => {
           'administration': 'Administration',
           'student-union': 'Student Union'
         };
-        toast.error(`No ${roleDisplayNames[role as keyof typeof roleDisplayNames] || role} letter found`);
+        console.log('❌ No letter content available for role:', role);
+        toast.error(`No ${roleDisplayNames[role as keyof typeof roleDisplayNames] || role} letter content available`);
       }
     } else {
       toast.error('No event plan selected');
@@ -1305,27 +1314,30 @@ const AdminTools: React.FC = () => {
                     )}
 
                     {/* Service Provider Status for Event Plans */}
-                    {approval.type === 'event-plan' && approval.serviceProviderStatus && (
+                    {approval.type === 'event-plan' && (
                       <div className="mb-4">
                         <h4 className="text-sm font-semibold text-white mb-2">Service Provider Status:</h4>
-                                                  <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${
-                            approval.serviceProviderStatus === 'approved' ? 'bg-green-900/60 text-green-200' :
-                            approval.serviceProviderStatus === 'rejected' ? 'bg-red-900/60 text-red-200' :
-                            approval.serviceProviderStatus === 'notified' ? 'bg-blue-900/60 text-blue-200' :
-                            'bg-yellow-900/60 text-yellow-200'
-                          }`}>
-                            <span className={`w-2 h-2 rounded-full ${
-                              approval.serviceProviderStatus === 'approved' ? 'bg-green-400' :
-                              approval.serviceProviderStatus === 'rejected' ? 'bg-red-400' :
-                              approval.serviceProviderStatus === 'notified' ? 'bg-blue-400' :
-                              'bg-yellow-400'
-                            }`}></span>
-                            <span className="text-xs">
-                              Service Provider: {approval.serviceProviderStatus === 'approved' ? 'Approved' : 
-                                               approval.serviceProviderStatus === 'rejected' ? 'Rejected' : 
-                                               approval.serviceProviderStatus === 'notified' ? 'Notified' :
-                                               'Pending'}
-                            </span>
+                        <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${
+                          approval.serviceProviderStatus === 'approved' ? 'bg-green-900/60 text-green-200' :
+                          approval.serviceProviderStatus === 'rejected' ? 'bg-red-900/60 text-red-200' :
+                          approval.serviceProviderStatus === 'notified' ? 'bg-blue-900/60 text-blue-200' :
+                          approval.serviceProviderStatus === 'pending' ? 'bg-yellow-900/60 text-yellow-200' :
+                          'bg-gray-700/60 text-gray-300'
+                        }`}>
+                          <span className={`w-2 h-2 rounded-full ${
+                            approval.serviceProviderStatus === 'approved' ? 'bg-green-400' :
+                            approval.serviceProviderStatus === 'rejected' ? 'bg-red-400' :
+                            approval.serviceProviderStatus === 'notified' ? 'bg-blue-400' :
+                            approval.serviceProviderStatus === 'pending' ? 'bg-yellow-400' :
+                            'bg-gray-400'
+                          }`}></span>
+                          <span className="text-xs">
+                            Service Provider: {approval.serviceProviderStatus === 'approved' ? 'Approved' : 
+                                             approval.serviceProviderStatus === 'rejected' ? 'Rejected' : 
+                                             approval.serviceProviderStatus === 'notified' ? 'Notified' :
+                                             approval.serviceProviderStatus === 'pending' ? 'Pending' :
+                                             'Not Started'}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -1912,22 +1924,23 @@ const AdminTools: React.FC = () => {
                           <p className="text-white/70 text-sm">
                             Send event planning request with all service details to Service Provider for approval
                           </p>
-                          {selectedViewApproval.serviceProviderStatus && (
-                            <div className="mt-2">
-                              <span className="text-sm text-white/70">Status: </span>
-                              <span className={`text-sm font-semibold ${
-                                selectedViewApproval.serviceProviderStatus === 'approved' 
-                                  ? 'text-green-400' 
-                                  : selectedViewApproval.serviceProviderStatus === 'rejected'
-                                  ? 'text-red-400'
-                                  : 'text-yellow-400'
-                              }`}>
-                                {selectedViewApproval.serviceProviderStatus === 'approved' ? 'Approved' : 
-                                 selectedViewApproval.serviceProviderStatus === 'rejected' ? 'Rejected' : 
-                                 'Pending'}
-                              </span>
-                            </div>
-                          )}
+                          <div className="mt-2">
+                            <span className="text-sm text-white/70">Status: </span>
+                            <span className={`text-sm font-semibold ${
+                              selectedViewApproval.serviceProviderStatus === 'approved' 
+                                ? 'text-green-400' 
+                                : selectedViewApproval.serviceProviderStatus === 'rejected'
+                                ? 'text-red-400'
+                                : selectedViewApproval.serviceProviderStatus === 'pending'
+                                ? 'text-yellow-400'
+                                : 'text-gray-400'
+                            }`}>
+                              {selectedViewApproval.serviceProviderStatus === 'approved' ? 'Approved' : 
+                               selectedViewApproval.serviceProviderStatus === 'rejected' ? 'Rejected' : 
+                               selectedViewApproval.serviceProviderStatus === 'pending' ? 'Pending' :
+                               'Not Started'}
+                            </span>
+                          </div>
                         </div>
                         {/* <button
                           onClick={handleForwardToServiceProvider}
@@ -1969,7 +1982,7 @@ const AdminTools: React.FC = () => {
                   </div>
 
                   {/* Super Admin Final Decision Section */}
-                  {selectedViewApproval.serviceProviderStatus && selectedViewApproval.serviceProviderStatus !== 'pending' && (
+                  {selectedViewApproval.type === 'event-plan' && (
                     <div className="mb-8">
                       <h4 className="text-lg font-semibold text-white mb-4 border-b border-gray-600 pb-2">Super Admin Final Decision</h4>
                       <div className="bg-gray-800/60 rounded-lg p-4">
@@ -1998,18 +2011,21 @@ const AdminTools: React.FC = () => {
                             selectedViewApproval.serviceProviderStatus === 'approved' ? 'bg-green-900/60 text-green-200' :
                             selectedViewApproval.serviceProviderStatus === 'rejected' ? 'bg-red-900/60 text-red-200' :
                             selectedViewApproval.serviceProviderStatus === 'notified' ? 'bg-blue-900/60 text-blue-200' :
-                            'bg-yellow-900/60 text-yellow-200'
+                            selectedViewApproval.serviceProviderStatus === 'pending' ? 'bg-yellow-900/60 text-yellow-200' :
+                            'bg-gray-700/60 text-gray-300'
                           }`}>
                             <span className={`w-2 h-2 rounded-full ${
                               selectedViewApproval.serviceProviderStatus === 'approved' ? 'bg-green-400' :
                               selectedViewApproval.serviceProviderStatus === 'rejected' ? 'bg-red-400' :
                               selectedViewApproval.serviceProviderStatus === 'notified' ? 'bg-blue-400' :
-                              'bg-yellow-400'
+                              selectedViewApproval.serviceProviderStatus === 'pending' ? 'bg-yellow-400' :
+                              'bg-gray-400'
                             }`}></span>
                             <span className="text-xs">Service Provider: {selectedViewApproval.serviceProviderStatus === 'approved' ? 'Approved' : 
                              selectedViewApproval.serviceProviderStatus === 'rejected' ? 'Rejected' : 
                              selectedViewApproval.serviceProviderStatus === 'notified' ? 'Notified' :
-                             'Pending'}</span>
+                             selectedViewApproval.serviceProviderStatus === 'pending' ? 'Pending' :
+                             'Not Started'}</span>
                           </div>
                         </div>
 
@@ -2031,12 +2047,14 @@ const AdminTools: React.FC = () => {
                               <div className="bg-gray-700/40 rounded-lg p-3">
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-xs font-medium text-white">VC Approval</span>
-                                  {authorityLetters.find(letter => letter.role === 'vice-chancellor') && (
+                                  {(authorityLetters.find(letter => letter.role === 'vice-chancellor')?.signature_data || 
+                                    authorityLetters.find(letter => letter.role === 'vice-chancellor')?.letter_content) && (
                                     <span className="text-xs text-green-400">✓ Available</span>
                                   )}
                                 </div>
                                 <div className="text-center">
-                                  {authorityLetters.find(letter => letter.role === 'vice-chancellor') ? (
+                                  {(authorityLetters.find(letter => letter.role === 'vice-chancellor')?.signature_data || 
+                                    authorityLetters.find(letter => letter.role === 'vice-chancellor')?.letter_content) ? (
                                     <div className="mb-2">
                                       <div className="text-xs text-gray-300 bg-gray-600/60 rounded px-2 py-1 mb-2">
                                         Vice Chancellor Approval
@@ -2058,12 +2076,14 @@ const AdminTools: React.FC = () => {
                               <div className="bg-gray-700/40 rounded-lg p-3">
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-xs font-medium text-white">Warden Approval</span>
-                                  {authorityLetters.find(letter => letter.role === 'warden') && (
+                                  {(authorityLetters.find(letter => letter.role === 'warden')?.signature_data || 
+                                    authorityLetters.find(letter => letter.role === 'warden')?.letter_content) && (
                                     <span className="text-xs text-green-400">✓ Available</span>
                                   )}
                                 </div>
                                 <div className="text-center">
-                                  {authorityLetters.find(letter => letter.role === 'warden') ? (
+                                  {(authorityLetters.find(letter => letter.role === 'warden')?.signature_data || 
+                                    authorityLetters.find(letter => letter.role === 'warden')?.letter_content) ? (
                                     <div className="mb-2">
                                       <div className="text-xs text-gray-300 bg-gray-600/60 rounded px-2 py-1 mb-2">
                                         Warden Approval
@@ -2085,12 +2105,14 @@ const AdminTools: React.FC = () => {
                               <div className="bg-gray-700/40 rounded-lg p-3">
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-xs font-medium text-white">Administration</span>
-                                  {authorityLetters.find(letter => letter.role === 'administration') && (
+                                  {(authorityLetters.find(letter => letter.role === 'administration')?.signature_data || 
+                                    authorityLetters.find(letter => letter.role === 'administration')?.letter_content) && (
                                     <span className="text-xs text-green-400">✓ Available</span>
                                   )}
                                 </div>
                                 <div className="text-center">
-                                  {authorityLetters.find(letter => letter.role === 'administration') ? (
+                                  {(authorityLetters.find(letter => letter.role === 'administration')?.signature_data || 
+                                    authorityLetters.find(letter => letter.role === 'administration')?.letter_content) ? (
                                     <div className="mb-2">
                                       <div className="text-xs text-gray-300 bg-gray-600/60 rounded px-2 py-1 mb-2">
                                         Administration Approval
@@ -2112,12 +2134,14 @@ const AdminTools: React.FC = () => {
                               <div className="bg-gray-700/40 rounded-lg p-3">
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-xs font-medium text-white">Student Union</span>
-                                  {authorityLetters.find(letter => letter.role === 'student-union') && (
+                                  {(authorityLetters.find(letter => letter.role === 'student-union')?.signature_data || 
+                                    authorityLetters.find(letter => letter.role === 'student-union')?.letter_content) && (
                                     <span className="text-xs text-green-400">✓ Available</span>
                                   )}
                                 </div>
                                 <div className="text-center">
-                                  {authorityLetters.find(letter => letter.role === 'student-union') ? (
+                                  {(authorityLetters.find(letter => letter.role === 'student-union')?.signature_data || 
+                                    authorityLetters.find(letter => letter.role === 'student-union')?.letter_content) ? (
                                     <div className="mb-2">
                                       <div className="text-xs text-gray-300 bg-gray-600/60 rounded px-2 py-1 mb-2">
                                         Student Union Approval
@@ -2615,13 +2639,88 @@ const AdminTools: React.FC = () => {
                     ×
                   </button>
                   <div className="flex-1 flex items-center justify-center">
-                    {selectedFilePreview.authorityLetter?.letter_content && (
-                      <iframe
-                        src={`data:application/pdf;base64,${selectedFilePreview.authorityLetter.letter_content}`}
-                        className="w-full h-full"
-                        title="PDF Viewer"
-                      />
-                    )}
+                    {(() => {
+                      console.log('🔍 PDF Viewer Modal - Authority Letter Data:', selectedFilePreview.authorityLetter);
+                      console.log('📄 Signature Data:', selectedFilePreview.authorityLetter?.signature_data);
+                      console.log('📄 Letter Content:', selectedFilePreview.authorityLetter?.letter_content);
+                      
+                                             if (selectedFilePreview.authorityLetter?.signature_data) {
+                         console.log('✅ Using signature_data for PDF');
+                         const pdfData = selectedFilePreview.authorityLetter.signature_data;
+                         console.log('📄 PDF Data:', pdfData);
+                         
+                         // Handle signature_data as JSON object (like other dashboards)
+                         let source: string | null = null;
+                         if (typeof pdfData === 'string') {
+                           source = pdfData;
+                         } else if (pdfData && typeof pdfData === 'object') {
+                           source = pdfData.dataUrl || pdfData.url || pdfData.content || null;
+                         }
+                         
+                         if (source) {
+                           // Sanitize the source
+                           source = source.trim();
+                           if ((source.startsWith('"') && source.endsWith('"')) || (source.startsWith("'") && source.endsWith("'"))) {
+                             source = source.substring(1, source.length - 1);
+                           }
+                           if (source.startsWith('data%3A') || source.includes('%2F')) {
+                             source = decodeURIComponent(source);
+                           }
+                           
+                           return (
+                             <iframe
+                               src={source}
+                               className="w-full h-full"
+                               title="PDF Viewer"
+                               onLoad={() => console.log('✅ PDF loaded successfully from signature_data')}
+                               onError={(e) => {
+                                 console.error('❌ PDF load error from signature_data:', e);
+                                 toast.error('Failed to load PDF from signature data');
+                               }}
+                             />
+                           );
+                         } else {
+                           console.log('❌ No valid source found in signature_data');
+                           return (
+                             <div className="text-center text-white">
+                               <p className="text-lg mb-2">Invalid PDF format in signature data</p>
+                               <p className="text-sm text-gray-400">The signature data does not contain valid PDF content</p>
+                             </div>
+                           );
+                         }
+                       } else if (selectedFilePreview.authorityLetter?.letter_content) {
+                         console.log('✅ Using letter_content for PDF');
+                         const pdfData = selectedFilePreview.authorityLetter.letter_content;
+                         console.log('📄 PDF Data length:', pdfData ? pdfData.length : 0);
+                         console.log('📄 PDF Data preview:', pdfData ? pdfData.substring(0, 100) + '...' : 'None');
+                         
+                         return (
+                           <iframe
+                             src={`data:application/pdf;base64,${pdfData}`}
+                             className="w-full h-full"
+                             title="PDF Viewer"
+                             onLoad={() => console.log('✅ PDF loaded successfully from letter_content')}
+                             onError={(e) => {
+                               console.error('❌ PDF load error from letter_content:', e);
+                               toast.error('Failed to load PDF from letter content');
+                             }}
+                           />
+                         );
+                       } else {
+                        console.log('❌ No PDF content available');
+                        return (
+                          <div className="text-center text-white">
+                            <p className="text-lg mb-2">No PDF content available</p>
+                            <p className="text-sm text-gray-400">The authority letter does not contain PDF data</p>
+                            <div className="mt-4 text-xs text-gray-500">
+                              <p>Debug Info:</p>
+                              <p>Signature Data: {selectedFilePreview.authorityLetter?.signature_data ? 'Present' : 'Missing'}</p>
+                              <p>Letter Content: {selectedFilePreview.authorityLetter?.letter_content ? 'Present' : 'Missing'}</p>
+                            </div>
+                          </div>
+                        );
+                      }
+                    })()}
                   </div>
                 </div>
               </div>

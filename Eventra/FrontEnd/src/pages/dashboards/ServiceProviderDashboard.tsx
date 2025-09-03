@@ -58,24 +58,49 @@ const ServiceProviderDashboard: React.FC = () => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      // Fetch both submitted and forwarded event plans
+      // Fetch both submitted and forwarded event plans (pending requests)
       const [submittedResponse, forwardedResponse] = await Promise.all([
         apiService.getEventPlans({ status: 'submitted' }),
         apiService.getEventPlans({ status: 'forwarded_to_service_provider' })
       ]);
       
-      let allRequests = [];
+      let pendingRequests = [];
       
       if (submittedResponse.success) {
-        allRequests = [...(submittedResponse.data || [])];
+        pendingRequests = [...(submittedResponse.data || [])];
       }
       
       if (forwardedResponse.success) {
-        allRequests = [...allRequests, ...(forwardedResponse.data || [])];
+        pendingRequests = [...pendingRequests, ...(forwardedResponse.data || [])];
       }
       
+      // Also fetch approved and rejected requests for accurate counts
+      const [approvedResponse, rejectedResponse] = await Promise.all([
+        apiService.getEventPlans({ status: 'approved' }),
+        apiService.getEventPlans({ status: 'rejected' })
+      ]);
+      
+      let allRequests = [...pendingRequests];
+      
+      if (approvedResponse.success) {
+        allRequests = [...allRequests, ...(approvedResponse.data || [])];
+      }
+      
+      if (rejectedResponse.success) {
+        allRequests = [...allRequests, ...(rejectedResponse.data || [])];
+      }
+      
+      console.log('Service Provider: Pending requests:', pendingRequests);
+      console.log('Service Provider: All requests for counts:', allRequests);
+      console.log('Service Provider: Status breakdown:', {
+        submitted: pendingRequests.filter(r => r.status === 'submitted').length,
+        forwarded: pendingRequests.filter(r => r.status === 'forwarded_to_service_provider').length,
+        approved: allRequests.filter(r => r.status === 'approved').length,
+        rejected: allRequests.filter(r => r.status === 'rejected').length,
+        total: allRequests.length
+      });
+      
       setRequests(allRequests);
-      console.log('Service Provider: Fetched event planning requests:', allRequests);
     } catch (error) {
       console.error('Error fetching event planning requests:', error);
       toast.error('Error fetching event planning requests');
@@ -170,31 +195,40 @@ const ServiceProviderDashboard: React.FC = () => {
       }
       
       if (response.success) {
-        // Update local state
-        setRequests(prev => prev.map(r => 
-          r.id === modal.requestId 
-            ? { ...r, status: modal.action === 'approve' ? 'approved' : 'rejected' } 
-            : r
-        ));
+        console.log('✅ API response successful:', response);
+        
+        // Update local state immediately for better UX
+        setRequests(prev => {
+          const updated = prev.map(r => 
+            r.id === modal.requestId 
+              ? { ...r, status: modal.action === 'approve' ? 'approved' : 'rejected' } 
+              : r
+          );
+          console.log('🔄 Updated local state:', updated);
+          return updated;
+        });
       
-      // Show success message
-      const message = modal.action === 'approve' 
-          ? `Event plan approved successfully. Notification sent to Super-Admin.`
-          : `Event plan rejected successfully. Notification sent to Super-Admin.`;
-        
-        toast.success(message);
-        
-        // Log notification details
-        console.log(`📧 Super-Admin notification sent for ${modal.action} action on event plan ID: ${modal.requestId}`);
-        console.log(`Service Provider Comment: ${comment}`);
-        
-        // Close modal
-      setModal({ open: false, requestId: null, action: null });
-      setComment('');
-        
-        // Refresh data
-        fetchData();
-      } else {
+        // Show success message
+        const message = modal.action === 'approve' 
+            ? `Event plan approved successfully. Notification sent to Super-Admin.`
+            : `Event plan rejected successfully. Notification sent to Super-Admin.`;
+          
+          toast.success(message);
+          
+          // Log notification details
+          console.log(`📧 Super-Admin notification sent for ${modal.action} action on event plan ID: ${modal.requestId}`);
+          console.log(`Service Provider Comment: ${comment}`);
+          
+          // Close modal
+        setModal({ open: false, requestId: null, action: null });
+        setComment('');
+          
+          // Refresh data after a short delay to ensure backend has processed the update
+          setTimeout(() => {
+            console.log('🔄 Refreshing data after status update...');
+            fetchData();
+          }, 1000);
+        } else {
         toast.error(response.message || 'Failed to process request');
       }
     } catch (error) {
@@ -347,15 +381,17 @@ const ServiceProviderDashboard: React.FC = () => {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400 mx-auto"></div>
                 <p className="text-white mt-4">Loading event planning requests...</p>
               </div>
-            ) : requests.length === 0 ? (
+            ) : requests.filter(request => request.status === 'submitted' || request.status === 'forwarded_to_service_provider').length === 0 ? (
               <div className="text-center py-8">
                 <ClipboardList className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-white text-lg">No event planning requests found</p>
-                <p className="text-gray-400 mt-2">New requests will appear here when forwarded by Super-Admin</p>
+                <p className="text-white text-lg">No pending event planning requests</p>
+                <p className="text-gray-400 mt-2">All requests have been processed or new requests will appear here when forwarded by Super-Admin</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {requests.map((request) => (
+                {requests
+                  .filter(request => request.status === 'submitted' || request.status === 'forwarded_to_service_provider')
+                  .map((request) => (
                   <div key={request.id} className="bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -420,7 +456,7 @@ const ServiceProviderDashboard: React.FC = () => {
                         )}
                     </div>
                       
-                      {request.status === 'submitted' && (
+                      {(request.status === 'submitted' || request.status === 'forwarded_to_service_provider') && (
                         <div className="flex space-x-2 ml-4">
                           <button
                             onClick={() => handleAction(request.id, 'approve')}

@@ -87,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $signedLetter->to_role = 'super-admin';
             $signedLetter->letter_type = 'approval';
             $signedLetter->letter_content = $data->signed_document ?? '';
+            $signedLetter->signature_data = $data->signed_document ?? null;
             $signedLetter->status = 'sent';
             
             $signedLetterCreated = $signedLetter->create();

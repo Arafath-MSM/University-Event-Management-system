@@ -249,7 +249,7 @@ const AdminTools: React.FC = () => {
           type: 'booking' as const,
           title: booking.event_title,
           requester: booking.user_name || booking.user?.name || 'Unknown User',
-          requestedBy: booking.user_email || booking.user?.email || 'unknown@email.com',
+          // requestedBy: booking.user_email || booking.user?.email || 'unknown@email.com',
           venue: booking.venue_name || booking.venue?.name || 'Unknown Venue',
           date: booking.date,
           details: booking.description || 'No description provided',

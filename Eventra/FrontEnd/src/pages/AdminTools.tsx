@@ -223,10 +223,12 @@ const AdminTools: React.FC = () => {
         status: 'pending'
       });
       
-      // Fetch pending event plans (including those forwarded to service provider)
-      const [pendingEventPlansResponse, forwardedEventPlansResponse] = await Promise.all([
+      // Fetch all relevant event plans to get accurate status information
+      const [pendingEventPlansResponse, forwardedEventPlansResponse, approvedEventPlansResponse, rejectedEventPlansResponse] = await Promise.all([
         apiService.getEventPlans({ status: 'submitted' }),
-        apiService.getEventPlans({ status: 'forwarded_to_service_provider' })
+        apiService.getEventPlans({ status: 'forwarded_to_service_provider' }),
+        apiService.getEventPlans({ status: 'approved' }),
+        apiService.getEventPlans({ status: 'rejected' })
       ]);
       
       let allEventPlans: any[] = [];
@@ -237,6 +239,14 @@ const AdminTools: React.FC = () => {
       
       if (forwardedEventPlansResponse.success) {
         allEventPlans = [...allEventPlans, ...(forwardedEventPlansResponse.data || [])];
+      }
+      
+      if (approvedEventPlansResponse.success) {
+        allEventPlans = [...allEventPlans, ...(approvedEventPlansResponse.data || [])];
+      }
+      
+      if (rejectedEventPlansResponse.success) {
+        allEventPlans = [...allEventPlans, ...(rejectedEventPlansResponse.data || [])];
       }
       
       const allPendingApprovals: PendingApproval[] = [];
@@ -306,20 +316,30 @@ const AdminTools: React.FC = () => {
                 authorityApprovals.student_union = true;
                 signedLetters.student_union = letter.letter_content;
               } else if (letter.from_role === 'service-provider') {
-                // Check Service Provider status
-                if (letter.letter_type === 'approval') {
+                // Check Service Provider status from signed letters (but event plan status takes priority)
+                if (letter.letter_type === 'approval' && !serviceProviderStatus) {
                   serviceProviderStatus = 'approved';
-                } else if (letter.letter_type === 'rejection') {
+                } else if (letter.letter_type === 'rejection' && !serviceProviderStatus) {
                   serviceProviderStatus = 'rejected';
                 }
               }
             });
           }
           
-          // If event plan is forwarded to service provider but no response yet, set status as pending
-          if (eventPlan.status === 'forwarded_to_service_provider' && !serviceProviderStatus) {
+          // Check event plan status for service provider response
+          if (eventPlan.status === 'approved' && !serviceProviderStatus) {
+            serviceProviderStatus = 'approved';
+          } else if (eventPlan.status === 'rejected' && !serviceProviderStatus) {
+            serviceProviderStatus = 'rejected';
+          } else if (eventPlan.status === 'forwarded_to_service_provider' && !serviceProviderStatus) {
             serviceProviderStatus = 'pending';
           }
+          
+          console.log(`🔍 Event Plan ${eventPlan.id} Service Provider Status:`, {
+            eventPlanStatus: eventPlan.status,
+            finalServiceProviderStatus: serviceProviderStatus,
+            hasSignedLetters: signedLettersResponse.success && signedLettersResponse.data ? signedLettersResponse.data.length : 0
+          });
           
           const eventPlanApproval = {
             id: eventPlan.id.toString(),
@@ -345,6 +365,14 @@ const AdminTools: React.FC = () => {
           allPendingApprovals.push(eventPlanApproval);
         }
       }
+      
+      console.log('🔍 Final AdminTools Data:', {
+        totalEventPlans: allEventPlans.length,
+        pendingApprovals: allPendingApprovals.length,
+        serviceProviderStatuses: allPendingApprovals
+          .filter(a => a.type === 'event-plan')
+          .map(a => ({ id: a.id, title: a.title, serviceProviderStatus: a.serviceProviderStatus }))
+      });
       
       setPendingApprovals(allPendingApprovals);
     } catch (error) {

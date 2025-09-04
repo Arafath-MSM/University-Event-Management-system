@@ -685,12 +685,6 @@ const EventPlanning: React.FC = () => {
                               <CheckCircle size={16} className="text-green-400 mr-2" />
                               <span className="text-white text-sm">VC Approval</span>
                             </div>
-                            <button
-                              onClick={() => window.open(plan.approval_documents.vc_approval, '_blank')}
-                              className="text-blue-300 hover:text-blue-200 text-xs underline"
-                            >
-                              View
-                            </button>
                           </div>
                         )}
                         {plan.approval_documents.administration_approval && (
@@ -699,12 +693,6 @@ const EventPlanning: React.FC = () => {
                               <CheckCircle size={16} className="text-green-400 mr-2" />
                               <span className="text-white text-sm">Administration Approval</span>
                             </div>
-                            <button
-                              onClick={() => window.open(plan.approval_documents.administration_approval, '_blank')}
-                              className="text-blue-300 hover:text-blue-200 text-xs underline"
-                            >
-                              View
-                            </button>
                           </div>
                         )}
                         {plan.approval_documents.warden_approval && (
@@ -713,12 +701,6 @@ const EventPlanning: React.FC = () => {
                               <CheckCircle size={16} className="text-green-400 mr-2" />
                               <span className="text-white text-sm">Warden Approval</span>
                             </div>
-                            <button
-                              onClick={() => window.open(plan.approval_documents.warden_approval, '_blank')}
-                              className="text-blue-300 hover:text-blue-200 text-xs underline"
-                            >
-                              View
-                            </button>
                           </div>
                         )}
                         {plan.approval_documents.student_union_approval && (
@@ -727,12 +709,6 @@ const EventPlanning: React.FC = () => {
                               <CheckCircle size={16} className="text-green-400 mr-2" />
                               <span className="text-white text-sm">Student Union Approval</span>
                             </div>
-                            <button
-                              onClick={() => window.open(plan.approval_documents.student_union_approval, '_blank')}
-                              className="text-blue-300 hover:text-blue-200 text-xs underline"
-                            >
-                              View
-                            </button>
                           </div>
                         )}
                       </div>

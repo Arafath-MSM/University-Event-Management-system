@@ -1331,7 +1331,7 @@ const AdminTools: React.FC = () => {
                           </div>
                           <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${approval.authorityApprovals.administration ? 'bg-green-900/60 text-green-200' : 'bg-gray-700/60 text-gray-300'}`}>
                             <span className={`w-2 h-2 rounded-full ${approval.authorityApprovals.administration ? 'bg-green-400' : 'bg-gray-400'}`}></span>
-                            <span className="text-xs">Admin</span>
+                            <span className="text-xs">University Administration</span>
                           </div>
                           <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${approval.authorityApprovals.student_union ? 'bg-green-900/60 text-green-200' : 'bg-gray-700/60 text-gray-300'}`}>
                             <span className={`w-2 h-2 rounded-full ${approval.authorityApprovals.student_union ? 'bg-green-400' : 'bg-gray-400'}`}></span>
@@ -2276,7 +2276,7 @@ const AdminTools: React.FC = () => {
                           {/* Service Provider Letter Upload */}
                           <div className="bg-gray-700/40 rounded-lg p-3">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-white">Service Provider</span>
+                              <span className="text-sm font-medium text-white">Student Union</span>
                               {isLetterUploaded('serviceProvider') && (
                                 <span className="text-xs text-green-400">✓ Uploaded</span>
                               )}
@@ -2311,7 +2311,7 @@ const AdminTools: React.FC = () => {
                           {/* Administration Letter Upload */}
                           <div className="bg-gray-700/40 rounded-lg p-3">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-white">Administration</span>
+                              <span className="text-sm font-medium text-white">University Administration</span>
                               {isLetterUploaded('administration') && (
                                 <span className="text-xs text-green-400">✓ Uploaded</span>
                               )}
@@ -2380,14 +2380,14 @@ const AdminTools: React.FC = () => {
                                 ? 'bg-green-900/60 text-green-200' 
                                 : 'bg-red-900/60 text-red-200'
                             }`}>
-                              Service Provider: {isLetterUploaded('serviceProvider') ? '✓ Ready' : '✗ Missing'}
+                              Student Union: {isLetterUploaded('serviceProvider') ? '✓ Ready' : '✗ Missing'}
                             </div>
                             <div className={`text-xs px-2 py-1 rounded ${
                               isLetterUploaded('administration')
                                 ? 'bg-green-900/60 text-green-200' 
                                 : 'bg-red-900/60 text-red-200'
                             }`}>
-                              Administration: {isLetterUploaded('administration') ? '✓ Ready' : '✗ Missing'}
+                              University Administration: {isLetterUploaded('administration') ? '✓ Ready' : '✗ Missing'}
                             </div>
                           </div>
                         </div>

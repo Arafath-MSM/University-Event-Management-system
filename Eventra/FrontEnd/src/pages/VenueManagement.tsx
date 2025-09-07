@@ -324,15 +324,6 @@ const VenueManagement: React.FC = () => {
                     <div className="text-xs text-gray-300 mt-2"><span className="font-semibold">Restrictions:</span> {venue.restrictions}</div>
                   </div>
                   <div className="flex gap-2 mt-auto">
-                    <button 
-                      onClick={() => {
-                        // TODO: Implement view details functionality
-                        alert(`Viewing details for: ${venue.name}`);
-                      }}
-                      className="bg-gray-800/70 text-white px-4 py-2 rounded-lg font-medium flex-1 hover:bg-gray-700 transition-colors flex items-center justify-center"
-                    >
-                      <Eye size={16} className="mr-2" /> View Details
-                    </button>
                     {user?.role === 'super-admin' ? (
                       <>
                         <button 

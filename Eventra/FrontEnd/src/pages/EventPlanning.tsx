@@ -440,12 +440,7 @@ const EventPlanning: React.FC = () => {
                     {eventPlan.approval_documents.vc_approval && (
                       <div className="mt-3 p-2 bg-green-900/30 border border-green-500 rounded">
                         <p className="text-green-200 text-xs mb-2">✓ VC Approval uploaded</p>
-                        <button
-                          onClick={() => window.open(eventPlan.approval_documents.vc_approval, '_blank')}
-                          className="text-blue-300 hover:text-blue-200 text-xs underline"
-                        >
-                          View Document
-                        </button>
+                        {/* View Document button removed as requested */}
                       </div>
                     )}
                   </div>
@@ -469,12 +464,7 @@ const EventPlanning: React.FC = () => {
                     {eventPlan.approval_documents.administration_approval && (
                       <div className="mt-3 p-2 bg-green-900/30 border border-green-500 rounded">
                         <p className="text-green-200 text-xs mb-2">✓ Administration Approval uploaded</p>
-                        <button
-                          onClick={() => window.open(eventPlan.approval_documents.administration_approval, '_blank')}
-                          className="text-blue-300 hover:text-blue-200 text-xs underline"
-                        >
-                          View Document
-                        </button>
+                        {/* View Document button removed as requested */}
                       </div>
                     )}
                   </div>
@@ -500,12 +490,7 @@ const EventPlanning: React.FC = () => {
                     {eventPlan.approval_documents.warden_approval && (
                       <div className="mt-3 p-2 bg-green-900/30 border border-green-500 rounded">
                         <p className="text-green-200 text-xs mb-2">✓ Warden Approval uploaded</p>
-                        <button
-                          onClick={() => window.open(eventPlan.approval_documents.warden_approval, '_blank')}
-                          className="text-blue-300 hover:text-blue-200 text-xs underline"
-                        >
-                          View Document
-                        </button>
+                        {/* View Document button removed as requested */}
                       </div>
                     )}
                   </div>
@@ -529,12 +514,7 @@ const EventPlanning: React.FC = () => {
                     {eventPlan.approval_documents.student_union_approval && (
                       <div className="mt-3 p-2 bg-green-900/30 border border-green-500 rounded">
                         <p className="text-green-200 text-xs mb-2">✓ Student Union Approval uploaded</p>
-                        <button
-                          onClick={() => window.open(eventPlan.approval_documents.student_union_approval, '_blank')}
-                          className="text-blue-300 hover:text-blue-200 text-xs underline"
-                        >
-                          View Document
-                        </button>
+                        {/* View Document button removed as requested */}
                       </div>
                     )}
                   </div>
@@ -647,7 +627,6 @@ const EventPlanning: React.FC = () => {
                       </div>
                     </div>
                     <div>
-                      <h4 className="font-medium text-white mb-2">Uploaded Documents</h4>
                       <ul className="space-y-1">
                         {Array.isArray(plan.documents) && plan.documents.length > 0 ? (
                           plan.documents.map((doc) => (
@@ -656,9 +635,7 @@ const EventPlanning: React.FC = () => {
                               {doc}
                             </li>
                           ))
-                        ) : (
-                          <li className="text-gray-400 text-sm">No documents uploaded</li>
-                        )}
+                        ) : null}
                       </ul>
                     </div>
                   </div>

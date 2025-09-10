@@ -1,7 +1,7 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
+import { apiService } from '../services/api';
 import { 
   Search, 
   Filter, 
@@ -12,11 +12,12 @@ import {
   MapPin, 
   Calendar,
   Eye,
-  Upload
+  Upload,
+  Loader
 } from 'lucide-react';
 
 interface Venue {
-  id: string;
+  id: number;
   name: string;
   capacity: number;
   location: string;
@@ -24,6 +25,8 @@ interface Venue {
   availability: string;
   restrictions: string;
   images: string[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 const VenueManagement: React.FC = () => {
@@ -33,50 +36,11 @@ const VenueManagement: React.FC = () => {
   const [minCapacity, setMinCapacity] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingVenue, setEditingVenue] = useState<Venue | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  // Mock venue data
-  const [venues, setVenues] = useState<Venue[]>([
-    {
-      id: '1',
-      name: 'E Block Main Auditorium',
-      capacity: 500,
-      location: 'Academic Block E',
-      type: 'Auditorium',
-      availability: 'Available',
-      restrictions: 'No food and drinks allowed',
-      images: ['/E1.jpg']
-    },
-    {
-      id: '2',
-      name: 'Technology Lecture Theater 1',
-      capacity: 250,
-      location: 'Technology Building',
-      type: 'Lecture Theater',
-      availability: 'Booked',
-      restrictions: 'Professional events only',
-      images: ['/Tecno.jpg']
-    },
-    {
-      id: '3',
-      name: 'Open Ground',
-      capacity: 1000,
-      location: 'Campus Premises',
-      type: 'Outdoor',
-      availability: 'Available',
-      restrictions: 'Weather dependent',
-      images: ['/Ground.jpg']
-    },
-    {
-      id: '4',
-      name: 'Namunukula Open Air Theater',
-      capacity: 700,
-      location: 'Campus Center',
-      type: 'Outdoor',
-      availability: 'Available',
-      restrictions: 'Weather dependent',
-      images: ['/Open Air Theater.jpg']
-    }
-  ]);
+  const [venues, setVenues] = useState<Venue[]>([]);
 
   const [newVenue, setNewVenue] = useState<Partial<Venue>>({
     name: '',
@@ -91,9 +55,32 @@ const VenueManagement: React.FC = () => {
   // Add state for image uploads
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const eventTypes = ['Conference', 'Cultural Events', 'Sports Events', 'Social Events','Club Events' ];
   const venueTypes = ['Auditorium', 'Lecture Theater', 'Outdoor', 'Laboratories'];
+
+  // Fetch venues from API
+  useEffect(() => {
+    fetchVenues();
+  }, []);
+
+  const fetchVenues = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.getVenues();
+      if (response.success) {
+        setVenues(response.data);
+      } else {
+        setError('Failed to fetch venues: ' + response.message);
+      }
+    } catch (err) {
+      setError('An error occurred while fetching venues');
+      console.error('Error fetching venues:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Handle image file selection
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,13 +123,20 @@ const VenueManagement: React.FC = () => {
     return matchesSearch && matchesType && matchesCapacity;
   });
 
-  const handleAddVenue = () => {
-    if (newVenue.name && newVenue.capacity && newVenue.location && newVenue.type) {
+  const handleAddVenue = async () => {
+    if (!newVenue.name || !newVenue.capacity || !newVenue.location || !newVenue.type) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError('');
+
+    try {
       // Convert uploaded images to base64 strings for storage
-      const imageUrls = imagePreviewUrls.length > 0 ? imagePreviewUrls : ['/placeholder.svg'];
+      const imageUrls = imagePreviewUrls.length > 0 ? imagePreviewUrls : [];
       
-      const venue: Venue = {
-        id: Date.now().toString(),
+      const venueData = {
         name: newVenue.name,
         capacity: newVenue.capacity,
         location: newVenue.location,
@@ -152,19 +146,32 @@ const VenueManagement: React.FC = () => {
         images: imageUrls
       };
       
-      setVenues([...venues, venue]);
-      setNewVenue({
-        name: '',
-        capacity: 0,
-        location: '',
-        type: '',
-        availability: 'Available',
-        restrictions: '',
-        images: []
-      });
-      setShowAddModal(false);
-      // Clear image state
-      clearImages();
+      const response = await apiService.createVenue(venueData);
+      
+      if (response.success) {
+        setSuccess('Venue created successfully!');
+        // Refresh the venues list
+        fetchVenues();
+        setNewVenue({
+          name: '',
+          capacity: 0,
+          location: '',
+          type: '',
+          availability: 'Available',
+          restrictions: '',
+          images: []
+        });
+        setShowAddModal(false);
+        // Clear image state
+        clearImages();
+      } else {
+        setError('Failed to create venue: ' + response.message);
+      }
+    } catch (err) {
+      setError('An error occurred while creating the venue');
+      console.error('Error creating venue:', err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -177,13 +184,20 @@ const VenueManagement: React.FC = () => {
     setShowAddModal(true);
   };
 
-  const handleUpdateVenue = () => {
-    if (editingVenue && newVenue.name && newVenue.capacity && newVenue.location && newVenue.type) {
+  const handleUpdateVenue = async () => {
+    if (!editingVenue || !newVenue.name || !newVenue.capacity || !newVenue.location || !newVenue.type) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError('');
+
+    try {
       // Use uploaded images if any, otherwise keep existing images
       const imageUrls = imagePreviewUrls.length > 0 ? imagePreviewUrls : editingVenue.images;
       
-      const updatedVenue: Venue = {
-        ...editingVenue,
+      const venueData = {
         name: newVenue.name,
         capacity: newVenue.capacity,
         location: newVenue.location,
@@ -193,26 +207,49 @@ const VenueManagement: React.FC = () => {
         images: imageUrls
       };
       
-      setVenues(venues.map(v => v.id === editingVenue.id ? updatedVenue : v));
-      setEditingVenue(null);
-      setNewVenue({
-        name: '',
-        capacity: 0,
-        location: '',
-        type: '',
-        availability: 'Available',
-        restrictions: '',
-        images: []
-      });
-      setShowAddModal(false);
-      // Clear image state
-      clearImages();
+      // Note: You'll need to implement updateVenue in your apiService
+      // For now, we'll just show an error
+      setError('Update functionality not implemented yet');
+      
+      // If you implement updateVenue, it would look like this:
+      // const response = await apiService.updateVenue(editingVenue.id, venueData);
+      // if (response.success) {
+      //   setSuccess('Venue updated successfully!');
+      //   fetchVenues();
+      //   setEditingVenue(null);
+      //   setNewVenue({ ...defaultVenue });
+      //   setShowAddModal(false);
+      //   clearImages();
+      // } else {
+      //   setError('Failed to update venue: ' + response.message);
+      // }
+    } catch (err) {
+      setError('An error occurred while updating the venue');
+      console.error('Error updating venue:', err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleDeleteVenue = (venueId: string) => {
+  const handleDeleteVenue = async (venueId: number) => {
     if (window.confirm('Are you sure you want to delete this venue?')) {
-      setVenues(venues.filter(v => v.id !== venueId));
+      try {
+        // Note: You'll need to implement deleteVenue in your apiService
+        // For now, we'll just show an error
+        setError('Delete functionality not implemented yet');
+        
+        // If you implement deleteVenue, it would look like this:
+        // const response = await apiService.deleteVenue(venueId);
+        // if (response.success) {
+        //   setSuccess('Venue deleted successfully!');
+        //   fetchVenues();
+        // } else {
+        //   setError('Failed to delete venue: ' + response.message);
+        // }
+      } catch (err) {
+        setError('An error occurred while deleting the venue');
+        console.error('Error deleting venue:', err);
+      }
     }
   };
 
@@ -250,6 +287,25 @@ const VenueManagement: React.FC = () => {
               </button>
             ) : null}
           </div>
+
+          {/* Error/Success Messages */}
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+              <span className="block sm:inline">{error}</span>
+              <button onClick={() => setError('')} className="absolute top-0 right-0 p-3">
+                <span className="text-red-700">×</span>
+              </button>
+            </div>
+          )}
+          
+          {success && (
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
+              <span className="block sm:inline">{success}</span>
+              <button onClick={() => setSuccess('')} className="absolute top-0 right-0 p-3">
+                <span className="text-green-700">×</span>
+              </button>
+            </div>
+          )}
 
           {/* Filters */}
           <div className="bg-black bg-opacity-40 rounded-xl shadow-none p-6">
@@ -305,58 +361,68 @@ const VenueManagement: React.FC = () => {
             </div>
           </div>
 
-          {/* Venue Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredVenues.map(venue => (
-              <div key={venue.id} className="bg-black bg-opacity-40 rounded-xl shadow-none overflow-hidden flex flex-col">
-                <div className="relative">
-                  <img src={venue.images[0]} alt={venue.name} className="w-full h-56 object-cover" />
-                  <span className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-bold
-                    ${venue.availability.toLowerCase() === 'available' ? 'bg-green-900 bg-opacity-60 text-green-200' :
-                      venue.availability.toLowerCase() === 'booked' ? 'bg-red-900 bg-opacity-60 text-red-200' :
-                      'bg-yellow-900 bg-opacity-60 text-yellow-200'}`}>{venue.availability}</span>
-                </div>
-                <div className="p-6 flex-1 flex flex-col justify-between">
-                  <div className="mb-4">
-                    <div className="font-bold text-xl text-white mb-2">{venue.name}</div>
-                    <div className="flex items-center gap-2 text-sm text-gray-200 mb-1"><MapPin size={16} /> {venue.location}</div>
-                    <div className="flex items-center gap-2 text-sm text-gray-200 mb-1">Capacity: {venue.capacity}</div>
-                    <div className="flex items-center gap-2 text-sm text-gray-200 mb-1">Type: {venue.type}</div>
-                    <div className="text-xs text-gray-300 mt-2"><span className="font-semibold">Restrictions:</span> {venue.restrictions}</div>
-                  </div>
-                  <div className="flex gap-2 mt-auto">
-                    <button 
-                      onClick={() => {
-                        // TODO: Implement view details functionality
-                        alert(`Viewing details for: ${venue.name}`);
-                      }}
-                      className="bg-gray-800/70 text-white px-4 py-2 rounded-lg font-medium flex-1 hover:bg-gray-700 transition-colors flex items-center justify-center"
-                    >
-                      <Eye size={16} className="mr-2" /> View Details
-                    </button>
-                    {user?.role === 'super-admin' ? (
-                      <>
-                        <button 
-                          onClick={() => handleEditVenue(venue)}
-                          className="bg-yellow-900 bg-opacity-80 text-white px-3 py-2 rounded-lg font-medium hover:bg-yellow-800 transition-colors flex items-center justify-center"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteVenue(venue.id)}
-                          className="bg-red-900 bg-opacity-80 text-white px-3 py-2 rounded-lg font-medium hover:bg-red-800 transition-colors flex items-center justify-center"
-                        >
-                          <Trash size={16} />
-                        </button>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* Loading State */}
+          {loading && (
+            <div className="flex justify-center items-center py-12">
+              <Loader size={48} className="animate-spin text-white" />
+              <span className="ml-3 text-white">Loading venues...</span>
+            </div>
+          )}
 
-          {filteredVenues.length === 0 && (
+          {/* Venue Cards */}
+          {!loading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredVenues.map(venue => (
+                <div key={venue.id} className="bg-black bg-opacity-40 rounded-xl shadow-none overflow-hidden flex flex-col">
+                  <div className="relative">
+                    <img src={venue.images[0] || '/placeholder.svg'} alt={venue.name} className="w-full h-56 object-cover" />
+                    <span className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-bold
+                      ${venue.availability.toLowerCase() === 'available' ? 'bg-green-900 bg-opacity-60 text-green-200' :
+                        venue.availability.toLowerCase() === 'booked' ? 'bg-red-900 bg-opacity-60 text-red-200' :
+                        'bg-yellow-900 bg-opacity-60 text-yellow-200'}`}>{venue.availability}</span>
+                  </div>
+                  <div className="p-6 flex-1 flex flex-col justify-between">
+                    <div className="mb-4">
+                      <div className="font-bold text-xl text-white mb-2">{venue.name}</div>
+                      <div className="flex items-center gap-2 text-sm text-gray-200 mb-1"><MapPin size={16} /> {venue.location}</div>
+                      <div className="flex items-center gap-2 text-sm text-gray-200 mb-1">Capacity: {venue.capacity}</div>
+                      <div className="flex items-center gap-2 text-sm text-gray-200 mb-1">Type: {venue.type}</div>
+                      <div className="text-xs text-gray-300 mt-2"><span className="font-semibold">Restrictions:</span> {venue.restrictions}</div>
+                    </div>
+                    <div className="flex gap-2 mt-auto">
+                      <button 
+                        onClick={() => {
+                          // TODO: Implement view details functionality
+                          alert(`Viewing details for: ${venue.name}`);
+                        }}
+                        className="bg-gray-800/70 text-white px-4 py-2 rounded-lg font-medium flex-1 hover:bg-gray-700 transition-colors flex items-center justify-center"
+                      >
+                        <Eye size={16} className="mr-2" /> View Details
+                      </button>
+                      {user?.role === 'super-admin' ? (
+                        <>
+                          <button 
+                            onClick={() => handleEditVenue(venue)}
+                            className="bg-yellow-900 bg-opacity-80 text-white px-3 py-2 rounded-lg font-medium hover:bg-yellow-800 transition-colors flex items-center justify-center"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteVenue(venue.id)}
+                            className="bg-red-900 bg-opacity-80 text-white px-3 py-2 rounded-lg font-medium hover:bg-red-800 transition-colors flex items-center justify-center"
+                          >
+                            <Trash size={16} />
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loading && filteredVenues.length === 0 && (
             <div className="text-center py-12">
               <MapPin size={48} className="mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No venues found</h3>
@@ -376,7 +442,7 @@ const VenueManagement: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-white mb-2">
-                          Venue Name
+                          Venue Name *
                         </label>
                         <input
                           type="text"
@@ -384,26 +450,28 @@ const VenueManagement: React.FC = () => {
                           onChange={(e) => setNewVenue({...newVenue, name: e.target.value})}
                           className="bg-white/10 border border-white/20 text-white placeholder-white/60 rounded-xl py-2 px-4 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                           placeholder="Enter venue name"
+                          required
                         />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-white mb-2">
-                          Capacity
+                          Capacity *
                         </label>
                         <input
                           type="number"
                           value={newVenue.capacity || ''}
-                          onChange={(e) => setNewVenue({...newVenue, capacity: parseInt(e.target.value)})}
+                          onChange={(e) => setNewVenue({...newVenue, capacity: parseInt(e.target.value) || 0})}
                           className="bg-white/10 border border-white/20 text-white placeholder-white/60 rounded-xl py-2 px-4 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                           placeholder="Enter capacity"
                           min="1"
+                          required
                         />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-white mb-2">
-                          Location
+                          Location *
                         </label>
                         <input
                           type="text"
@@ -411,16 +479,18 @@ const VenueManagement: React.FC = () => {
                           onChange={(e) => setNewVenue({...newVenue, location: e.target.value})}
                           className="bg-white/10 border border-white/20 text-white placeholder-white/60 rounded-xl py-2 px-4 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                           placeholder="Enter location"
+                          required
                         />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-white mb-2">
-                          Type
+                          Type *
                         </label>
                         <select
                           value={newVenue.type || ''}
                           onChange={(e) => setNewVenue({...newVenue, type: e.target.value})}
                           className="bg-white/10 border border-white/20 text-white rounded-xl py-2 px-4 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          required
                         >
                           <option value="" className="text-black">Select type</option>
                           {venueTypes.map(type => (
@@ -531,15 +601,21 @@ const VenueManagement: React.FC = () => {
                         });
                         // Clear image state
                         clearImages();
+                        setError('');
                       }}
                       className="bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl hover:bg-white/20 transition-colors border border-white/20"
+                      disabled={isSubmitting}
                     >
                       Cancel
                     </button>
                     <button
                       onClick={editingVenue ? handleUpdateVenue : handleAddVenue}
-                      className="bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl hover:bg-white/20 transition-colors border border-white/20"
+                      className="bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl hover:bg-white/20 transition-colors border border-white/20 flex items-center justify-center"
+                      disabled={isSubmitting}
                     >
+                      {isSubmitting ? (
+                        <Loader size={20} className="animate-spin mr-2" />
+                      ) : null}
                       {editingVenue ? 'Update Venue' : 'Add Venue'}
                     </button>
                   </div>

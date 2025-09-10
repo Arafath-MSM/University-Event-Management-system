@@ -122,6 +122,35 @@ class ApiService {
 
 
   // Venues endpoints
+
+  // Add to your api.ts file
+async updateVenue(venueId: number, venueData: {
+  name: string;
+  capacity: number;
+  location: string;
+  type: string;
+  availability?: string;
+  restrictions?: string;
+  images?: string[];
+}): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/venues/update.php`, {
+    method: 'PUT',
+    headers: this.getAuthHeaders(),
+    body: JSON.stringify({ id: venueId, ...venueData }),
+  });
+
+  return this.handleResponse(response);
+}
+
+async deleteVenue(venueId: number): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/venues/delete.php`, {
+    method: 'DELETE',
+    headers: this.getAuthHeaders(),
+    body: JSON.stringify({ id: venueId }),
+  });
+
+  return this.handleResponse(response);
+}
   async getVenues(params?: {
     search?: string;
     type?: string;

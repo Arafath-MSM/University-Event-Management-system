@@ -440,12 +440,7 @@ const EventPlanning: React.FC = () => {
                     {eventPlan.approval_documents.vc_approval && (
                       <div className="mt-3 p-2 bg-green-900/30 border border-green-500 rounded">
                         <p className="text-green-200 text-xs mb-2">✓ VC Approval uploaded</p>
-                        <button
-                          onClick={() => window.open(eventPlan.approval_documents.vc_approval, '_blank')}
-                          className="text-blue-300 hover:text-blue-200 text-xs underline"
-                        >
-                          View Document
-                        </button>
+                        {/* View Document button removed as requested */}
                       </div>
                     )}
                   </div>
@@ -469,12 +464,7 @@ const EventPlanning: React.FC = () => {
                     {eventPlan.approval_documents.administration_approval && (
                       <div className="mt-3 p-2 bg-green-900/30 border border-green-500 rounded">
                         <p className="text-green-200 text-xs mb-2">✓ Administration Approval uploaded</p>
-                        <button
-                          onClick={() => window.open(eventPlan.approval_documents.administration_approval, '_blank')}
-                          className="text-blue-300 hover:text-blue-200 text-xs underline"
-                        >
-                          View Document
-                        </button>
+                        {/* View Document button removed as requested */}
                       </div>
                     )}
                   </div>
@@ -500,12 +490,7 @@ const EventPlanning: React.FC = () => {
                     {eventPlan.approval_documents.warden_approval && (
                       <div className="mt-3 p-2 bg-green-900/30 border border-green-500 rounded">
                         <p className="text-green-200 text-xs mb-2">✓ Warden Approval uploaded</p>
-                        <button
-                          onClick={() => window.open(eventPlan.approval_documents.warden_approval, '_blank')}
-                          className="text-blue-300 hover:text-blue-200 text-xs underline"
-                        >
-                          View Document
-                        </button>
+                        {/* View Document button removed as requested */}
                       </div>
                     )}
                   </div>
@@ -529,12 +514,7 @@ const EventPlanning: React.FC = () => {
                     {eventPlan.approval_documents.student_union_approval && (
                       <div className="mt-3 p-2 bg-green-900/30 border border-green-500 rounded">
                         <p className="text-green-200 text-xs mb-2">✓ Student Union Approval uploaded</p>
-                        <button
-                          onClick={() => window.open(eventPlan.approval_documents.student_union_approval, '_blank')}
-                          className="text-blue-300 hover:text-blue-200 text-xs underline"
-                        >
-                          View Document
-                        </button>
+                        {/* View Document button removed as requested */}
                       </div>
                     )}
                   </div>
@@ -577,7 +557,6 @@ const EventPlanning: React.FC = () => {
           {/* Header */}
           <div className="flex flex-col items-center text-center w-full mb-6">
             <h1 className="text-3xl font-bold text-white">Event Planning</h1>
-            <p className="text-white mt-2">Submit and track your event planning proposals</p>
             <button
               onClick={() => setShowPlanForm(true)}
               className="mt-4 bg-black bg-opacity-70 hover:bg-black/90 text-white flex items-center px-6 py-2 rounded-lg font-medium transition-colors"
@@ -630,31 +609,6 @@ const EventPlanning: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Approval Tracker */}
-                  <div className="mb-4">
-                    <h4 className="font-medium text-white mb-3">Approval Progress</h4>
-                    <div className="flex items-center justify-between">
-                      {approvalStages.map((stage, index) => (
-                        <div key={stage.name} className="flex items-center">
-                          <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
-                            index < plan.current_stage 
-                              ? 'bg-green-500 text-white' 
-                              : index === plan.current_stage 
-                                ? 'bg-blue-500 text-white' 
-                                : 'bg-gray-200 text-gray-600'
-                          }`}>
-                            {index < plan.current_stage ? <CheckCircle size={16} className="text-white" /> : index + 1}
-                          </div>
-                          <span className="ml-2 text-sm text-white hidden sm:block">{stage.name}</span>
-                          {index < approvalStages.length - 1 && (
-                            <div className={`w-8 h-1 mx-2 ${
-                              index < plan.current_stage ? 'bg-green-500' : 'bg-gray-200'
-                            }`} />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
 
                   {/* Facilities and Documents */}
                   <div className="flex flex-col md:flex-row md:justify-between gap-6 mb-4">
@@ -673,7 +627,6 @@ const EventPlanning: React.FC = () => {
                       </div>
                     </div>
                     <div>
-                      <h4 className="font-medium text-white mb-2">Uploaded Documents</h4>
                       <ul className="space-y-1">
                         {Array.isArray(plan.documents) && plan.documents.length > 0 ? (
                           plan.documents.map((doc) => (
@@ -682,9 +635,7 @@ const EventPlanning: React.FC = () => {
                               {doc}
                             </li>
                           ))
-                        ) : (
-                          <li className="text-gray-400 text-sm">No documents uploaded</li>
-                        )}
+                        ) : null}
                       </ul>
                     </div>
                   </div>
@@ -711,12 +662,6 @@ const EventPlanning: React.FC = () => {
                               <CheckCircle size={16} className="text-green-400 mr-2" />
                               <span className="text-white text-sm">VC Approval</span>
                             </div>
-                            <button
-                              onClick={() => window.open(plan.approval_documents.vc_approval, '_blank')}
-                              className="text-blue-300 hover:text-blue-200 text-xs underline"
-                            >
-                              View
-                            </button>
                           </div>
                         )}
                         {plan.approval_documents.administration_approval && (
@@ -725,12 +670,6 @@ const EventPlanning: React.FC = () => {
                               <CheckCircle size={16} className="text-green-400 mr-2" />
                               <span className="text-white text-sm">Administration Approval</span>
                             </div>
-                            <button
-                              onClick={() => window.open(plan.approval_documents.administration_approval, '_blank')}
-                              className="text-blue-300 hover:text-blue-200 text-xs underline"
-                            >
-                              View
-                            </button>
                           </div>
                         )}
                         {plan.approval_documents.warden_approval && (
@@ -739,12 +678,6 @@ const EventPlanning: React.FC = () => {
                               <CheckCircle size={16} className="text-green-400 mr-2" />
                               <span className="text-white text-sm">Warden Approval</span>
                             </div>
-                            <button
-                              onClick={() => window.open(plan.approval_documents.warden_approval, '_blank')}
-                              className="text-blue-300 hover:text-blue-200 text-xs underline"
-                            >
-                              View
-                            </button>
                           </div>
                         )}
                         {plan.approval_documents.student_union_approval && (
@@ -753,12 +686,6 @@ const EventPlanning: React.FC = () => {
                               <CheckCircle size={16} className="text-green-400 mr-2" />
                               <span className="text-white text-sm">Student Union Approval</span>
                             </div>
-                            <button
-                              onClick={() => window.open(plan.approval_documents.student_union_approval, '_blank')}
-                              className="text-blue-300 hover:text-blue-200 text-xs underline"
-                            >
-                              View
-                            </button>
                           </div>
                         )}
                       </div>

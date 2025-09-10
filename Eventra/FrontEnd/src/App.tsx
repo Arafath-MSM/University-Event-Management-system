@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-// Auth Context
+
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 // Auth Pages
@@ -29,7 +29,6 @@ import BookingSystem from "./pages/BookingSystem";
 import EventPlanning from "./pages/EventPlanning";
 import AdminTools from "./pages/AdminTools";
 import Reports from "./pages/Reports";
-import Profile from "./pages/Profile";
 
 // Public Pages
 import Index from "./pages/Index";
@@ -191,12 +190,6 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* Profile Route */}
-            <Route path="/profile" element={
-              <ProtectedRoute allowedRoles={['student', 'faculty', 'service-provider', 'vice-chancellor', 'administration', 'student-union', 'warden', 'super-admin']}>
-                <Profile />
-              </ProtectedRoute>
-            } />
             
             {/* Error Routes */}
             <Route path="/unauthorized" element={

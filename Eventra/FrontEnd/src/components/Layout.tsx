@@ -108,14 +108,6 @@ const Layout: React.FC<LayoutProps> = ({ children, notificationBell, showSidebar
                   {/* Dropdown Menu */}
                   {isProfileDropdownOpen && (
                     <div className="absolute right-0 mt-2 w-48 bg-gray-900/90 rounded-lg shadow-lg border border-gray-700 py-1 z-50">
-                      <Link
-                        to="/profile"
-                        className="flex items-center px-4 py-2 text-sm text-white hover:bg-gray-800"
-                        onClick={() => setIsProfileDropdownOpen(false)}
-                      >
-                        <User size={16} className="mr-3" />
-                        Profile
-                      </Link>
                       <button
                         onClick={handleLogout}
                         className="flex items-center w-full px-4 py-2 text-sm text-white hover:bg-gray-800"

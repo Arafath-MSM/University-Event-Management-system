@@ -15,8 +15,8 @@ class EmailService {
         $this->config = [
             'smtp_host' => 'smtp.gmail.com', 
             'smtp_port' => 587,
-            'smtp_username' => 'msmarafath1@gmail.com', 
-            'smtp_password' => 'uepo crop bvfb pxke', 
+            'smtp_username' => 'nykedotnyc@gmail.com', 
+            'smtp_password' => 'zxzg ipxv xpxg rrff', 
             'smtp_encryption' => 'tls',
             'from_email' => 'noreply@university.edu', 
             'from_name' => 'University Event Management System'

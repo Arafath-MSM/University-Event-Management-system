@@ -81,7 +81,7 @@ const Login: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">Welcome Back</h1>
-          <p className="text-white/80">Sign in to your Eventra account</p>
+          <p className="text-white/80">Log in to your Eventra account</p>
         </div>
 
         {/* Error Message */}

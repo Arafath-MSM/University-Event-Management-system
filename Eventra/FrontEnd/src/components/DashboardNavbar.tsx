@@ -109,7 +109,7 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
         <nav className="border-b border-gray-200 px-4 py-4 flex items-center justify-between w-full" style={{ backgroundColor: '#4d0011' }}>
           <div className="flex items-center">
             <img src="/Logo UWU.png" alt="Eventra Logo" className="h-8 w-auto mr-2" />
-            <span className="text-2xl font-bold text-blue-600">Eventra</span>
+            <span className="text-2xl font-bold text-white">Eventra</span>
           </div>
           <div className="flex items-center gap-8">
             {/* Notification bell */}
@@ -136,7 +136,7 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
                 onClick={() => setIsProfileDropdownOpen((open) => !open)}
                 className="flex items-center space-x-3 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
               >
-                <span className="bg-blue-500 text-white font-bold rounded-full w-9 h-9 flex items-center justify-center text-base">
+                <span className="bg-black/50 text-white font-bold rounded-full w-9 h-9 flex items-center justify-center text-base">
                   {initials}
                 </span>
                 <div className="hidden sm:block text-left">
@@ -148,14 +148,6 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
               </button>
               {isProfileDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                  <Link
-                    to="/profile"
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setIsProfileDropdownOpen(false)}
-                  >
-                    <User size={16} className="mr-3" />
-                    Profile
-                  </Link>
                   <button
                     onClick={handleLogout}
                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -204,14 +196,6 @@ export const DashboardNavbar: React.FC<DashboardNavbarProps> = ({
             </button>
             {isProfileDropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-gray-900/90 rounded-lg shadow-lg border border-gray-700 py-1 z-50">
-                <Link
-                  to="/profile"
-                  className="flex items-center px-4 py-2 text-sm text-white hover:bg-gray-800"
-                  onClick={() => setIsProfileDropdownOpen(false)}
-                >
-                  <User size={16} className="mr-3" />
-                  Profile
-                </Link>
                 <button
                   onClick={handleLogout}
                   className="flex items-center w-full px-4 py-2 text-sm text-white hover:bg-gray-800"

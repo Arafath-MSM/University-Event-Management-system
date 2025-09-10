@@ -68,7 +68,6 @@ const Reports: React.FC = () => {
         end_date: dateRange.end,
         event_type: eventTypeFilter === 'all' ? undefined : eventTypeFilter,
         venue_id: venueFilter === 'all' ? undefined : venueFilter,
-        limit: 50,
         offset: 0
       });
       setEventReports(response.data);
@@ -112,6 +111,7 @@ const Reports: React.FC = () => {
     }
   };
 
+
   // Fetch all data when filters change
   useEffect(() => {
     fetchEventStatistics();
@@ -119,49 +119,6 @@ const Reports: React.FC = () => {
     fetchVenueAnalytics();
     fetchUserAnalytics();
   }, [dateRange.start, dateRange.end, eventTypeFilter, venueFilter]);
-
-  // Load initial data
-  useEffect(() => {
-    fetchEventStatistics();
-    fetchEventReports();
-    fetchVenueAnalytics();
-    fetchUserAnalytics();
-  }, []);
-
-  const handleExportPDF = () => {
-    console.log('Exporting PDF report...');
-    // In a real app, this would generate and download a PDF with current data
-    const dataToExport = {
-      overview: eventStats,
-      events: eventReports,
-      venues: venueAnalytics,
-      users: userAnalytics,
-      filters: { dateRange, eventTypeFilter, venueFilter }
-    };
-    console.log('Data to export:', dataToExport);
-    alert('PDF report would be generated with current data and downloaded');
-  };
-
-  const handleExportExcel = () => {
-    console.log('Exporting Excel report...');
-    // In a real app, this would generate and download an Excel file with current data
-    const dataToExport = {
-      overview: eventStats,
-      events: eventReports,
-      venues: venueAnalytics,
-      users: userAnalytics,
-      filters: { dateRange, eventTypeFilter, venueFilter }
-    };
-    console.log('Data to export:', dataToExport);
-    alert('Excel report would be generated with current data and downloaded');
-  };
-
-  const handleRefresh = () => {
-    fetchEventStatistics();
-    fetchEventReports();
-    fetchVenueAnalytics();
-    fetchUserAnalytics();
-  };
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, index) => (
@@ -200,31 +157,9 @@ const Reports: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-white">Reports & Analytics</h1>
-                <p className="text-white/90 mt-2">Generate and analyze event reports</p>
+                
               </div>
-              <div className="flex space-x-3 mt-4 md:mt-0">
-                <button
-                  onClick={handleRefresh}
-                  className="bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl flex items-center hover:bg-white/20 transition-colors border border-white/20"
-                >
-                  <RefreshCw size={20} className="mr-2" />
-                  Refresh
-                </button>
-                <button
-                  onClick={handleExportPDF}
-                  className="bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl flex items-center hover:bg-white/20 transition-colors border border-white/20"
-                >
-                  <FileText size={20} className="mr-2" />
-                  Export PDF
-                </button>
-                <button
-                  onClick={handleExportExcel}
-                  className="bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl flex items-center hover:bg-white/20 transition-colors border border-white/20"
-                >
-                  <Download size={20} className="mr-2" />
-                  Export Excel
-                </button>
-              </div>
+              {/* Removed Refresh, Export PDF, and Export Excel buttons */}
             </div>
 
             {/* Filters */}
@@ -322,30 +257,20 @@ const Reports: React.FC = () => {
                   onClick={() => setActiveTab('overview')}
                   className={`px-4 py-2 rounded-lg transition-colors ${
                     activeTab === 'overview'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white/10 text-white/70 hover:bg-white/20'
+                      ? 'bg-black/70 text-white border border-white/20'
+                      : 'bg-black/30 text-white/70 hover:bg-black/50 border border-white/10'
                   }`}
                 >
                   <BarChart3 size={16} className="inline mr-2" />
                   Overview
                 </button>
-                <button
-                  onClick={() => setActiveTab('events')}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    activeTab === 'events'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white/10 text-white/70 hover:bg-white/20'
-                  }`}
-                >
-                  <Calendar size={16} className="inline mr-2" />
-                  Event Reports
-                </button>
+
                 <button
                   onClick={() => setActiveTab('venues')}
                   className={`px-4 py-2 rounded-lg transition-colors ${
                     activeTab === 'venues'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white/10 text-white/70 hover:bg-white/20'
+                      ? 'bg-black/70 text-white border border-white/20'
+                      : 'bg-black/30 text-white/70 hover:bg-black/50 border border-white/10'
                   }`}
                 >
                   <Building2 size={16} className="inline mr-2" />
@@ -355,8 +280,8 @@ const Reports: React.FC = () => {
                   onClick={() => setActiveTab('users')}
                   className={`px-4 py-2 rounded-lg transition-colors ${
                     activeTab === 'users'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white/10 text-white/70 hover:bg-white/20'
+                      ? 'bg-black/70 text-white border border-white/20'
+                      : 'bg-black/30 text-white/70 hover:bg-black/50 border border-white/10'
                   }`}
                 >
                   <Users size={16} className="inline mr-2" />
@@ -378,7 +303,7 @@ const Reports: React.FC = () => {
                       <p className="text-red-400">{error}</p>
                       <button
                         onClick={fetchEventStatistics}
-                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        className="mt-4 px-4 py-2 bg-black/70 text-white rounded-lg border border-white/20 hover:bg-black/80"
                       >
                         Retry
                       </button>
@@ -441,7 +366,7 @@ const Reports: React.FC = () => {
                       <p className="text-red-400">{error}</p>
                       <button
                         onClick={fetchEventReports}
-                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        className="mt-4 px-4 py-2 bg-black/70 text-white rounded-lg border border-white/20 hover:bg-black/80"
                       >
                         Retry
                       </button>
@@ -508,7 +433,7 @@ const Reports: React.FC = () => {
                       <p className="text-red-400">{error}</p>
                       <button
                         onClick={fetchVenueAnalytics}
-                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        className="mt-4 px-4 py-2 bg-black/70 text-white rounded-lg border border-white/20 hover:bg-black/80"
                       >
                         Retry
                       </button>
@@ -566,7 +491,7 @@ const Reports: React.FC = () => {
                       <p className="text-red-400">{error}</p>
                       <button
                         onClick={fetchUserAnalytics}
-                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        className="mt-4 px-4 py-2 bg-black/70 text-white rounded-lg border border-white/20 hover:bg-black/80"
                       >
                         Retry
                       </button>
@@ -616,19 +541,7 @@ const Reports: React.FC = () => {
               )}
             </div>
 
-            {/* Generate Report Button */}
-            <div className="text-center">
-              <button
-                onClick={() => {
-                  console.log('Generating comprehensive report...');
-                  alert('Comprehensive report would be generated with all filtered data');
-                }}
-                className="bg-white/10 backdrop-blur-sm text-white text-lg px-8 py-3 rounded-xl hover:bg-white/20 transition-colors border border-white/20 flex items-center mx-auto"
-              >
-                <BarChart3 size={24} className="mr-3" />
-                Generate Comprehensive Report
-              </button>
-            </div>
+
           </div>
         </div>
       </div>

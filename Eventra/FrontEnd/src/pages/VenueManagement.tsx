@@ -274,9 +274,8 @@ const VenueManagement: React.FC = () => {
       >
         <div className="w-full max-w-6xl mx-auto px-4 md:px-8">
           {/* Header */}
-          <div className="flex flex-col items-center text-center w-full">
-            <h1 className="text-5xl font-extrabold text-white">Venue Management</h1>
-            <p className="text-2xl text-white mt-4">Discover and manage event venues</p>
+          <div className="flex flex-col items-center text-center w-full mb-8">
+            <h1 className="text-5xl font-extrabold text-white mb-8">Venues</h1>
             {user?.role === 'super-admin' ? (
               <button
                 onClick={() => setShowAddModal(true)}
@@ -308,7 +307,7 @@ const VenueManagement: React.FC = () => {
           )}
 
           {/* Filters */}
-          <div className="bg-black bg-opacity-40 rounded-xl shadow-none p-6">
+          <div className="bg-black bg-opacity-40 rounded-xl shadow-none p-6 mb-8">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* Search */}
               <div className="relative">
@@ -361,13 +360,47 @@ const VenueManagement: React.FC = () => {
             </div>
           </div>
 
-          {/* Loading State */}
-          {loading && (
-            <div className="flex justify-center items-center py-12">
-              <Loader size={48} className="animate-spin text-white" />
-              <span className="ml-3 text-white">Loading venues...</span>
-            </div>
-          )}
+          {/* Venue Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredVenues.map(venue => (
+              <div key={venue.id} className="bg-black bg-opacity-40 rounded-xl shadow-none overflow-hidden flex flex-col">
+                <div className="relative">
+                  <img src={venue.images[0]} alt={venue.name} className="w-full h-56 object-cover" />
+                  <span className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-bold
+                    ${venue.availability.toLowerCase() === 'available' ? 'bg-green-900 bg-opacity-60 text-green-200' :
+                      venue.availability.toLowerCase() === 'booked' ? 'bg-red-900 bg-opacity-60 text-red-200' :
+                      'bg-yellow-900 bg-opacity-60 text-yellow-200'}`}>{venue.availability}</span>
+                </div>
+                <div className="p-6 flex-1 flex flex-col justify-between">
+                  <div className="mb-4">
+                    <div className="font-bold text-xl text-white mb-2">{venue.name}</div>
+                    <div className="flex items-center gap-2 text-sm text-gray-200 mb-1"><MapPin size={16} /> {venue.location}</div>
+                    <div className="flex items-center gap-2 text-sm text-gray-200 mb-1">Capacity: {venue.capacity}</div>
+                    <div className="flex items-center gap-2 text-sm text-gray-200 mb-1">Type: {venue.type}</div>
+                    <div className="text-xs text-gray-300 mt-2"><span className="font-semibold">Restrictions:</span> {venue.restrictions}</div>
+                  </div>
+                  <div className="flex gap-2 mt-auto">
+                    {user?.role === 'super-admin' ? (
+                      <>
+                        <button 
+                          onClick={() => handleEditVenue(venue)}
+                          className="bg-yellow-900 bg-opacity-80 text-white px-3 py-2 rounded-lg font-medium hover:bg-yellow-800 transition-colors flex items-center justify-center"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteVenue(venue.id)}
+                          className="bg-red-900 bg-opacity-80 text-white px-3 py-2 rounded-lg font-medium hover:bg-red-800 transition-colors flex items-center justify-center"
+                        >
+                          <Trash size={16} />
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
 
           {/* Venue Cards */}
           {!loading && (

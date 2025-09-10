@@ -1331,7 +1331,7 @@ const AdminTools: React.FC = () => {
                           </div>
                           <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${approval.authorityApprovals.administration ? 'bg-green-900/60 text-green-200' : 'bg-gray-700/60 text-gray-300'}`}>
                             <span className={`w-2 h-2 rounded-full ${approval.authorityApprovals.administration ? 'bg-green-400' : 'bg-gray-400'}`}></span>
-                            <span className="text-xs">Admin</span>
+                            <span className="text-xs">University Administration</span>
                           </div>
                           <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${approval.authorityApprovals.student_union ? 'bg-green-900/60 text-green-200' : 'bg-gray-700/60 text-gray-300'}`}>
                             <span className={`w-2 h-2 rounded-full ${approval.authorityApprovals.student_union ? 'bg-green-400' : 'bg-gray-400'}`}></span>
@@ -1538,20 +1538,7 @@ const AdminTools: React.FC = () => {
   const renderLogsTab = () => (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-        <h2 className="text-2xl font-bold text-white">System Logs</h2>
-        <div className="flex items-center space-x-3">
-          <button 
-            onClick={fetchSystemLogs}
-            className="mt-4 md:mt-0 bg-blue-600/80 backdrop-blur-sm text-white px-4 py-2 rounded-xl flex items-center hover:bg-blue-700/80 transition-colors border border-blue-500/30"
-          >
-            <RefreshCw size={20} className="mr-2" />
-            Refresh
-          </button>
-          <button className="mt-4 md:mt-0 bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl flex items-center hover:bg-white/20 transition-colors border border-white/20">
-            <Download size={20} className="mr-2" />
-            Export Logs
-          </button>
-        </div>
+  <h2 className="text-2xl font-bold text-white">System Logs</h2>
       </div>
 
       {/* Filters */}
@@ -1914,31 +1901,6 @@ const AdminTools: React.FC = () => {
                         </div>
                       </div>
                       
-                      <div className="bg-gray-800/60 rounded-lg p-4">
-                        <h5 className="font-medium text-white mb-3">Services Requested</h5>
-                        <div className="space-y-2">
-                          <div className="flex items-center text-white/90">
-                            <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                            Projector & Audio System
-                          </div>
-                          <div className="flex items-center text-white/90">
-                            <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                            Stage Setup
-                          </div>
-                          <div className="flex items-center text-white/90">
-                            <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                            Lighting System
-                          </div>
-                          <div className="flex items-center text-white/90">
-                            <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                            Security Services
-                          </div>
-                          <div className="flex items-center text-white/90">
-                            <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                            Catering Services
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   </div>
 
@@ -2314,7 +2276,7 @@ const AdminTools: React.FC = () => {
                           {/* Service Provider Letter Upload */}
                           <div className="bg-gray-700/40 rounded-lg p-3">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-white">Service Provider</span>
+                              <span className="text-sm font-medium text-white">Student Union</span>
                               {isLetterUploaded('serviceProvider') && (
                                 <span className="text-xs text-green-400">✓ Uploaded</span>
                               )}
@@ -2349,7 +2311,7 @@ const AdminTools: React.FC = () => {
                           {/* Administration Letter Upload */}
                           <div className="bg-gray-700/40 rounded-lg p-3">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-white">Administration</span>
+                              <span className="text-sm font-medium text-white">University Administration</span>
                               {isLetterUploaded('administration') && (
                                 <span className="text-xs text-green-400">✓ Uploaded</span>
                               )}
@@ -2418,14 +2380,14 @@ const AdminTools: React.FC = () => {
                                 ? 'bg-green-900/60 text-green-200' 
                                 : 'bg-red-900/60 text-red-200'
                             }`}>
-                              Service Provider: {isLetterUploaded('serviceProvider') ? '✓ Ready' : '✗ Missing'}
+                              Student Union: {isLetterUploaded('serviceProvider') ? '✓ Ready' : '✗ Missing'}
                             </div>
                             <div className={`text-xs px-2 py-1 rounded ${
                               isLetterUploaded('administration')
                                 ? 'bg-green-900/60 text-green-200' 
                                 : 'bg-red-900/60 text-red-200'
                             }`}>
-                              Administration: {isLetterUploaded('administration') ? '✓ Ready' : '✗ Missing'}
+                              University Administration: {isLetterUploaded('administration') ? '✓ Ready' : '✗ Missing'}
                             </div>
                           </div>
                         </div>
